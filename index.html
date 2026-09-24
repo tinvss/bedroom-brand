@@ -662,7 +662,7 @@ function step(){
 // Kapitel 1 ist Menge und Tempo, Kapitel 2 sind wenige, wertvolle Stücke.
 
 // Rohstoffe: Metall vom Metallhof oder Schrottplatz, Sand aus der Sandgrube, Lederbänder liefert Sohle
-const RAW2={metall:{n:"Metal yard",col:"#6C7A89"}, sand:{n:"Sand pit",col:"#D8C08A"}, band:{n:"Lederband",col:"#8A5A35"}};
+const RAW2={metall:{n:"Metal yard",col:"#6C7A89"}, sand:{n:"Sand pit",col:"#D8C08A"}, band:{n:"Leather strap",col:"#8A5A35"}};
 
 const UHREN={
  klassik:{n:"Classic", p0:1200, col:"var(--ink)",   c2:"#2B2A26", unlock:0,    need:{gehaeuse:1,glas:1,uhrwerk:1,band:1}},
@@ -671,12 +671,12 @@ const UHREN={
 // Takte à 0,4 Sekunden. Die Feinmechanik ist bewusst der Engpass, ein Uhrwerk braucht drei Zahnräder.
 const MACH2={
  giess:  {n:"Foundry",       need:{metall:1},                cost:400,  d:"Metal in, cases out.", t:[6],  factory:true, out:"gehaeuse"},
- ofen:   {n:"Glasofen",       need:{sand:1},                  cost:400,  d:"Sand in, glass out.",      t:[5],  factory:true, out:"glas"},
- fein:   {n:"Feinmechanik",   need:{metall:1},                cost:600,  d:"Turns metal into a gear. Slow, and three of them make one movement.", t:[10], factory:true, out:"zahnrad"},
+ ofen:   {n:"Glass furnace",       need:{sand:1},                  cost:400,  d:"Sand in, glass out.",      t:[5],  factory:true, out:"glas"},
+ fein:   {n:"Precision shop",   need:{metall:1},                cost:600,  d:"Turns metal into a gear. Slow, and three of them make one movement.", t:[10], factory:true, out:"zahnrad"},
  werk:   {n:"Movement assembly",need:{zahnrad:3},               cost:900,  d:"Three gears become one movement.", t:[8], factory:true, out:"uhrwerk"},
- endm:   {n:"Endmontage",     need:"modell",                  cost:1200, d:"Case, glass, movement and strap become a watch. You pick the model.", t:[10], factory:true, out:"modell"},
- atelier:{n:"Atelier",         need:{fertig:1},                cost:700,  d:"Takes finished watches as samples and turns them into research. Whatever ends up here, you don't sell.", t:[8], factory:true},
- zert:   {n:"Zertifikat",     need:{fertig:1},                cost:800,  d:"Certifies finished watches. Certified watches earn more and protect against replicas.", t:[5], factory:true, out:"siegel"},
+ endm:   {n:"Final assembly",     need:"modell",                  cost:1200, d:"Case, glass, movement and strap become a watch. You pick the model.", t:[10], factory:true, out:"modell"},
+ atelier:{n:"Studio",         need:{fertig:1},                cost:700,  d:"Takes finished watches as samples and turns them into research. Whatever ends up here, you don't sell.", t:[8], factory:true},
+ zert:   {n:"Certificate",     need:{fertig:1},                cost:800,  d:"Certifies finished watches. Certified watches earn more and protect against replicas.", t:[5], factory:true, out:"siegel"},
  werkstatt:{n:"Workshop for one-off pieces", need:{}, cost:0, gross:true, factory:true, t:[1],
    d:"A place for a single piece. This is where you build the masterpiece. It doesn't sit on the belt and produces nothing, and the crews talk about it."}};
 
@@ -701,7 +701,7 @@ function uhrWerk(){ const U=S.uhr; if(!U) return null;
 // Grundstücke oben im Viertel. Der Preis hängt am Exit-Geld, das teuerste kostet die Hälfte davon.
 // Näher an der Hauptstraße heißt kurzer Weg für den Lieferwagen aus Sohle und weniger Angriffsfläche.
 // Viertel oben, Koordinaten mit negativem y liegen über der alten Stadt
-const OBERSTADT=[{n:"Boulevard", x:2.2, y:-1.5}, {n:"Galerie", x:6.8, y:-1.5}, {n:"Promenade", x:4.5, y:-3.2}];
+const OBERSTADT=[{n:"Boulevard", x:2.2, y:-1.5}, {n:"Gallery", x:6.8, y:-1.5}, {n:"Promenade", x:4.5, y:-3.2}];
 const GRUNDSTUECKE=[
  {id:"mitte", n:"On the main road", x:4.5, y:-0.9, teil:0.5,  d:"Right behind the barrier. Short trip for the delivery van, easy to protect."},
  {id:"west",  n:"Westseite",          x:1.5, y:-2.6, teil:0.34, d:"In the middle of the upper city. Medium trip, medium risk."},
@@ -1329,8 +1329,8 @@ function openSlot(f,i){ const W=aktivesWerk(); if(!W||!W.floors[f]) return;   //
   const nd=bedarfVon(W,m)||{}, fehlt=Object.keys(nd).filter(k=>(m.buf[k]||0)<nd[k]);
   // Einzahl und Mehrzahl, damit "1 Uhrwerke" nicht dasteht
   const TEILE={leder:["Leather","Leather"],gummi:["Rubber","Rubber"],metall:["Metal","Metal"],schaft:["Upper","Uppers"],sohle:["Sole","Soles"],
-    sand:["Sand","Sand"],band:["Lederband","Leather straps"],gehaeuse:["Cases","Cases"],glas:["Glas","Glas"],zahnrad:["Zahnrad","Gears"],
-    uhrwerk:["Uhrwerk","Uhrwerke"],fertig:W.name==="uhren"?["finished watch","finished watches"]:["finished shoe","finished shoes"]};
+    sand:["Sand","Sand"],band:["Leather strap","Leather straps"],gehaeuse:["Case","Case"],glas:["Glass","Glass"],zahnrad:["Gear","Gears"],
+    uhrwerk:["Movement","Movements"],fertig:W.name==="uhren"?["finished watch","finished watches"]:["finished shoe","finished shoes"]};
   const teilName=(k,n)=>(TEILE[k]||[k,k])[n===1?0:1];
   const bufTxt=Object.entries(m.buf||{}).filter(([k,v])=>v>0).map(([k,v])=>v+" "+(W.models[k]?W.models[k].n:teilName(k,v))).join(", ");
   let h=`<h3>${M.n}</h3><p>${M.d}</p>`;
