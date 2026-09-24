@@ -16,10 +16,10 @@ html,body{margin:0; background:var(--bg); color:var(--ink); font-family:"Archivo
 .n{font-weight:800; font-size:22px; line-height:1; font-variant-numeric:tabular-nums}
 .n u{display:block; text-decoration:none; font-size:9px; font-weight:600; color:var(--soft); letter-spacing:.1em; margin-top:5px}
 .n.m{color:var(--money)} .n.a{color:var(--ammo)}
-.pz{appearance:none; font:inherit; font-weight:800; font-size:12.5px; background:var(--ink); color:var(--card); border:0; border-radius:9px; padding:9px 11px; cursor:pointer}
+.pz{appearance:none; font:inherit; font-weight:800; font-size:12.5px; background:var(--ink); color:var(--card); border:0; border-radius:9px; padding:13px 14px; min-height:44px; cursor:pointer}
 .pz.on{background:var(--money)}
 .tabs{display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; margin-bottom:8px}
-.tab{appearance:none; font:inherit; font-weight:800; font-size:14px; padding:10px; border-radius:10px; border:1px solid var(--line); background:var(--card); color:var(--soft); cursor:pointer}
+.tab{appearance:none; font:inherit; font-weight:800; font-size:14px; padding:13px 10px; min-height:44px; border-radius:10px; border:1px solid var(--line); background:var(--card); color:var(--soft); cursor:pointer}
 .tab.on{background:var(--ink); color:var(--card); border-color:var(--ink)}
 .tab i{font-style:normal; color:var(--bad); margin-left:6px}
 #haeuser{display:flex; gap:6px; margin-bottom:6px}
@@ -27,7 +27,7 @@ html,body{margin:0; background:var(--bg); color:var(--ink); font-family:"Archivo
 #haeuser button{flex:1; appearance:none; font:inherit; font-weight:800; font-size:13px; padding:8px; border-radius:9px; border:1px solid var(--line); background:var(--card); color:var(--soft); cursor:pointer}
 #haeuser button.on{background:var(--ink); color:var(--card); border-color:var(--ink)}
 #haeuser button i{font-style:normal; color:var(--bad); margin-left:5px}
-.stock{font-size:12px; color:var(--soft); margin:0 2px 8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; height:16px}
+.stock{font-size:12px; color:var(--soft); margin:0 2px 4px; padding:7px 0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-height:30px}
 .stock b{color:var(--ink); font-weight:800}
 svg.house{width:100%; height:auto; display:block}
 canvas{display:block; width:100%; border-radius:12px}
@@ -36,7 +36,10 @@ canvas{display:block; width:100%; border-radius:12px}
 .hand .bar{flex:1; height:10px; background:var(--line); border-radius:6px; overflow:hidden}
 .hand .bar i{display:block; height:100%; background:var(--runner)}
 .hand span{font-size:12px; color:var(--soft)}
-.tip{font-size:13px; color:var(--soft); margin:10px 2px 0; line-height:1.45; min-height:58px}
+.tip{font-size:13px; color:var(--soft); margin:0 0 8px; line-height:1.4; background:var(--card); border:1px solid var(--line); border-radius:11px; padding:10px 12px; min-height:44px; cursor:pointer}
+.tip:empty{display:none}
+.tip .rest{display:none; margin-top:4px}
+.tip.auf .rest{display:block}
 .tip b{color:var(--ink)}
 .tip button{appearance:none; font:inherit; font-weight:800; font-size:12px; border:0; border-radius:8px; padding:6px 10px; margin-left:4px; background:var(--ink); color:var(--card); cursor:pointer}
 .mk{display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; margin-top:10px}
@@ -45,7 +48,7 @@ canvas{display:block; width:100%; border-radius:12px}
 .m b i{width:9px; height:9px; border-radius:50%; display:inline-block}
 .m .p{font-weight:800; font-size:18px; margin:5px 0 1px; font-variant-numeric:tabular-nums}
 .m .h{font-size:11px; color:var(--soft)}
-.m button{appearance:none; width:100%; margin-top:6px; font:inherit; font-weight:700; font-size:11.5px; cursor:pointer; background:var(--ink); color:var(--card); border:0; border-radius:7px; padding:7px}
+.m button{appearance:none; width:100%; margin-top:6px; font:inherit; font-weight:700; font-size:11.5px; cursor:pointer; background:var(--ink); color:var(--card); border:0; border-radius:7px; padding:12px 7px; min-height:44px}
 .m button:disabled{opacity:.35}
 .sheet{position:fixed; inset:0; background:rgba(20,18,14,.45); display:flex; align-items:flex-end; z-index:20}
 .top{position:relative; z-index:22; background:var(--bg)}   /* über dem Fenster, damit Geld und Paare sichtbar bleiben */
@@ -77,10 +80,10 @@ canvas{display:block; width:100%; border-radius:12px}
   border-radius:14px; padding:12px 14px; font-size:14px; line-height:1.45; display:none; box-shadow:0 8px 30px rgba(0,0,0,.25)}
 #tutBox .st{font-size:10.5px; font-weight:800; letter-spacing:.12em; color:#F2B441; margin-bottom:3px}
 #tutBox .row{display:flex; justify-content:space-between; align-items:center; margin-top:8px; gap:10px}
-#tutBox button{appearance:none; font:inherit; font-weight:800; font-size:13px; border:0; border-radius:9px; padding:8px 14px; cursor:pointer; background:#F2B441; color:#1B1A17}
+#tutBox button{appearance:none; font:inherit; font-weight:800; font-size:13px; border:0; border-radius:9px; padding:13px 18px; min-height:44px; cursor:pointer; background:#F2B441; color:#1B1A17}
 #tutBox a{color:#ABA394; font-size:12px; cursor:pointer; text-decoration:underline}
 #resbar{cursor:pointer; margin:-2px 0 8px}
-#resbar .rb{display:flex; align-items:center; gap:10px; background:var(--card); border:1px solid var(--line); border-radius:10px; padding:7px 10px; font-size:12.5px}
+#resbar .rb{display:flex; align-items:center; gap:10px; background:var(--card); border:1px solid var(--line); border-radius:10px; padding:11px 10px; min-height:44px; font-size:12.5px}
 #resbar .rb b{font-weight:800; white-space:nowrap} #resbar .bar{flex:1; height:8px; background:var(--line); border-radius:5px; overflow:hidden}
 #resbar .bar i{display:block; height:100%; background:#7B5BC0} #resbar .eta{color:var(--soft); white-space:nowrap} #resbar .eta.bad{color:var(--bad); font-weight:700}
 #alarm{position:fixed; left:12px; right:12px; bottom:calc(14px + env(safe-area-inset-bottom,0px)); max-width:496px; margin:0 auto; z-index:24; display:none}
@@ -111,12 +114,12 @@ canvas{display:block; width:100%; border-radius:12px}
     <button class="pz" id="pause">Pause</button>
   </div>
   <div class="tabs"><button class="tab on" id="tTurm">Turm</button><button class="tab" id="tStadt">Stadt</button><button class="tab" id="tForsch">Forschung</button></div>
+  <div class="tip" id="tip"></div>
   <div id="resbar"></div>
   <div class="stock" id="stock" style="cursor:pointer"></div>
   <div id="turmView"><div id="haeuser"></div><canvas id="tc"></canvas><div id="hand"></div></div>
   <div id="stadtView" style="display:none"><div id="region"></div><div class="fleet" id="fleet"></div><canvas id="c"></canvas></div>
   <div class="mk" id="market"></div>
-  <div class="tip" id="tip"></div>
 </div>
 <div id="sheet"></div>
 <div id="overlay"></div>
@@ -135,12 +138,12 @@ const MODELS={
  hightop:{n:"Hightop", p0:150, col:"var(--hightop)", c2:"#1F9E6E", unlock:1400,need:{schaft:2,sohle:1}}};
 const MACH_LOCK={lab:"Erst mit der 3. Etage"};
 const MACH={
- bench:{n:"Werkbank mit Mitarbeiter", need:{leder:1,gummi:1}, out:"runner", cool:2, cost:100, d:"Macht aus Leder und Gummi einen ganzen Runner. Langsam, aber er lernt dazu. Kostet Lohn.", t:[10,7,5], wage:2},
+ bench:{n:"Werkbank mit Mitarbeiter", need:{leder:1,gummi:1}, out:"runner", cool:2, cost:100, d:"Macht aus Leder und Gummi einen ganzen Runner. Langsam, aber er lernt dazu. Kostet Lohn.", t:[10,7,5], up:[0,60,300], wage:2},
  cut:  {n:"Zuschnitt", need:{leder:1}, out:"schaft", cost:90,  d:"Leder rein, Schaft raus.", t:[3], factory:true},
  press:{n:"Presse",    need:{gummi:1}, out:"sohle", cost:90,  d:"Gummi rein, Sohle raus.",  t:[3], factory:true},
  asm:  {n:"Montage",   need:"modell", out:"modell", cool:2, cost:150, d:"Baut aus Teilen einen Sneaker. Modell wählbar.", t:[4], factory:true},
  lab:  {n:"Labor", need:{fertig:1}, cost:250, d:"Nimmt fertige Sneaker als Muster und macht daraus Forschung. Was hier landet, verkaufst du nicht.", t:[8], factory:true},
- seal: {n:"Siegel", need:{fertig:1}, out:"siegel", puffer:1, kosten:4, cost:200, d:"Versiegelt fertige Sneaker, 4 pro Paar. Versiegelte Paare verkaufen sich teurer und schließen Fälscherbuden.", t:[4], factory:true},
+ seal: {n:"Siegel", need:{fertig:1}, out:"siegel", puffer:1, kosten:4, cost:200, d:"Versiegelt fertige Sneaker, 4 pro Paar. Versiegelte Paare verkaufen sich teurer, schließen Fälscherbuden und locken keine neuen an.", t:[4,3,2], up:[0,150,400], factory:true},
  equip:{n:"Ausrüster", need:{metall:1,gummi:1}, out:"ausr", cost:220, d:"Metall und Gummi rein, Wachschutz-Ausrüstung raus: Netze, Funkgeräte.", t:[5], factory:true}};
 const FACTORY_AT=15;                    // so viele Paare, dann ziehst du aus dem Kinderzimmer aus
 const FLOOR_COST=[0,700,1800,4000,7000,12000];
@@ -443,7 +446,7 @@ function cityStep(){
     if(d.cd<=0){ let best=null,bp=0,sealed=false;
       for(const m in MODELS){ if((S.fin[m+"_s"]||0)>0){ const p=sealedIn(d,m); if(p>bp){bp=p;best=m;sealed=true;} }
                               if(S.fin[m]>0){ const p=priceIn(d,m); if(p>bp){bp=p;best=m;sealed=false;} } }
-      if(best){ if(flag) bp=Math.round(bp*1.3); S.fin[sealed?best+"_s":best]--; stat('sold'); stat('sold_'+best); S.money+=bp; S.earned+=bp; S.sold++; d.s[best]+=1; d.heat[best]+=(sealed?0.25:1)*(flag?2:1);
+      if(best){ if(flag) bp=Math.round(bp*1.3); S.fin[sealed?best+"_s":best]--; stat('sold'); stat('sold_'+best); S.money+=bp; S.earned+=bp; S.sold++; d.s[best]+=1; d.heat[best]+=(sealed?0:1)*(flag?2:1);
         pop(d,"+"+bp,"#1F7A55"); d.cd=flag?0.8:1.6;
         if(sealed){ const mine=S.fakes.filter(f=>f.d===d&&f.m===best); if(mine.length){ const w=mine.reduce((a,b)=>b.str>a.str?b:a); w.str-=(RES().holo?2.2:1.1)/(1+Math.max(0,fakeSkill()-1)*0.4); w.hit=S.t; } } }
       else d.cd=0.5;
@@ -1294,7 +1297,10 @@ function sheetAuffrischen(dt){ if(!S||!reopen||!$("sheet").innerHTML) return;
   if(S.money<=sheetGeld) { sheetGeld=Math.min(sheetGeld,S.money); return; }
   const gesperrt=[...document.querySelectorAll("#sheet .opt.off, #sheet button:disabled")];
   if(!gesperrt.length){ sheetGeld=S.money; return; }
-  reopen(); }
+  // Die Scrollstelle merken, sonst springt ein langes Fenster wie der Fuhrpark bei jedem Aufbau nach oben
+  const box=document.querySelector("#sheet .in"), pos=box?box.scrollTop:0;
+  reopen();
+  const neu=document.querySelector("#sheet .in"); if(neu&&pos) neu.scrollTop=pos; }
 function openSheet(html,bind){ $("sheet").innerHTML=`<div class="sheet"><div class="in">${html}<button class="close" id="cl">Schließen</button></div></div>`;
   $("cl").onclick=()=>{ $("sheet").innerHTML=""; reopen=null; }; bind&&bind();
   // Tipp neben das Fenster schließt es auch. Katya hat genau das versucht.
@@ -1338,9 +1344,9 @@ function openSlot(f,i){ const W=aktivesWerk(); if(!W||!W.floors[f]) return;   //
   else if(m.full) h+=`<p style="color:var(--ammo);font-weight:700;margin-top:-4px">Pausiert, das Ausrüstungslager ist voll.</p>`;
   else if(fehlt.length&&!m.busy) h+=`<p style="color:var(--bad);font-weight:700;margin-top:-4px">Es fehlt: ${fehlt.map(k=>(nd[k]>1?nd[k]+" ":"")+teilName(k,nd[k])).join(", ")}</p>`;
   h+=`<p style="margin-top:-6px">Hergestellt: <b>${m.made||0}</b>${bufTxt?" · im Puffer: "+bufTxt:" · Puffer leer"}${m.prio?" · hat Vorrang":""}</p>`;
-  if(m.t==="bench"){ const nx=(m.lvl||0)+1, c=[0,60,300][nx];
-    if(nx<M.t.length){ const ok=S.money>=c; h+=`<div class="opt ${ok?"":"off"}" ${ok?'data-tr="1"':""}><div><b>Ausbilden</b><span>Braucht dann ${M.t[nx]} statt ${M.t[m.lvl||0]} Takte pro Paar.</span></div><em>${c}</em></div>`; }
-    else h+=`<p><b>Voll ausgebildet.</b></p>`; }
+  if(M.t&&M.t.length>1){ const nx=(m.lvl||0)+1, c=(M.up||[0,60,300])[nx];
+    if(nx<M.t.length){ const ok=S.money>=c; h+=`<div class="opt ${ok?"":"off"}" ${ok?'data-tr="1"':""}><div><b>${m.t==="bench"?"Ausbilden":"Ausbauen"}</b><span>Braucht dann ${M.t[nx]} statt ${M.t[m.lvl||0]} Takte pro Stück.</span></div><em>${c}</em></div>`; }
+    else h+=`<p><b>${m.t==="bench"?"Voll ausgebildet.":"Voll ausgebaut."}</b></p>`; }
   // Modellwahl bei jeder Maschine, die nach Modell baut: Montage in Sohle, Endmontage in der Manufaktur
   if(W.mach[m.t].need==="modell") for(const [k,Mo] of Object.entries(W.models)){ const ok=W.open?W.open[k]:S.open[k];
     const braucht=Object.entries(Mo.need).map(([t,n])=>n+" "+teilName(t,n)).join(", ");
@@ -1354,7 +1360,7 @@ function openSlot(f,i){ const W=aktivesWerk(); if(!W||!W.floors[f]) return;   //
   h+=`<div class="opt" data-mv="1"><div><b>Verschieben</b><span>Danach auf einen Platz tippen, auch auf einer anderen Etage.</span></div><em></em></div>`;
   h+=`<div class="opt" data-se="1"><div><b>Abbauen</b><span>Du bekommst alles zurück.</span></div><em>+${M.cost}</em></div>`;
   openSheet(h,()=>{
-    const tr=document.querySelector("[data-tr]"); if(tr) tr.onclick=()=>{ const c=[0,60,300][(m.lvl||0)+1]; S.money-=c; m.lvl=(m.lvl||0)+1; $("sheet").innerHTML=""; };
+    const tr=document.querySelector("[data-tr]"); if(tr) tr.onclick=()=>{ const c=(M.up||[0,60,300])[(m.lvl||0)+1]; if(S.money<c) return; S.money-=c; m.lvl=(m.lvl||0)+1; $("sheet").innerHTML=""; };
     document.querySelectorAll("[data-mo]").forEach(b=>b.onclick=()=>{ m.model=b.dataset.mo; m.buf={}; m.busy=false; $("sheet").innerHTML=""; });
     const fo=document.querySelector("[data-fo]"); if(fo) fo.onclick=()=>{ $("sheet").innerHTML=""; $("tForsch").onclick(); };
     document.querySelector("[data-mv]").onclick=()=>{ moving={f,i,haus:aktivesHaus().id}; $("sheet").innerHTML=""; };
@@ -1400,7 +1406,7 @@ function openLift(f){ const W=aktivesWerk(); if(!W||!W.lifts[f]) return;
 // Menüs in der Stadt: Tippen auf die Karte, Fuhrpark
 /* ================= Eingaben: Stadt ================= */
 function cityTap(x,y){
-  const rd=S.raiders.filter(r=>dist(r,{x,y})<0.6).sort((a,b)=>dist(a,{x,y})-dist(b,{x,y}))[0];
+  const rd=S.raiders.filter(r=>dist(r,{x,y})<0.85).sort((a,b)=>dist(a,{x,y})-dist(b,{x,y}))[0];
   if(rd){ const beimTrupp=S.squads.some(q=>dist(q,rd)<2.2);   // während einer Razzia deckst du deinen Trupp
     const nah = dist(rd,HQ)<=SUPPLY_R+0.3 || (S.uhr&&S.uhr.ort&&dist(rd,S.uhr.ort)<=SUPPLY_R+0.3);
     if(!nah&&!beimTrupp){ pop(rd,"zu weit weg","#B8432F"); return; }
@@ -1409,7 +1415,7 @@ function cityTap(x,y){
     if(S.tapPause){ S.tapPause=false; paused=false; setPauseUI(); }
     const von=beimTrupp?S.squads.slice().sort((a,b)=>dist(a,rd)-dist(b,rd))[0]:{x:HQ.x,y:HQ.y-0.4};
     S.shots.push({a:{x:von.x,y:von.y},b:{x:rd.x,y:rd.y},ttl:0.25,max:0.25}); return; }
-  const src=S.sources.find(s=>dist(s,{x,y})<0.7);
+  const src=S.sources.find(s=>dist(s,{x,y})<0.85);
   if(src){ const has=src.trucks>0, full=fleetUsed()>=S.fleet, c=has?90:routeCost(src), ok=!full&&S.money>=c&&src.left>0;
     const fc=fleetCost(), fok=S.money>=fc;
     const zielZeile = S.uhr ? (src.k==="metall"
@@ -1493,7 +1499,7 @@ function cityTap(x,y){
       ()=>{ const b=document.querySelector("[data-go]"); if(b) b.onclick=()=>{ S.money-=c; shopD.shop=true; $("sheet").innerHTML=""; };
         const w=document.querySelector("[data-wp]"); if(w) w.onclick=()=>{ postBauen(Math.floor(shopD.x)+.5,Math.floor(shopD.y)+.5); $("sheet").innerHTML=""; }; });
     return; }
-  const dcy=(S.decoys||[]).find(p=>dist(p,{x,y})<0.6);
+  const dcy=(S.decoys||[]).find(p=>dist(p,{x,y})<0.75);
   if(dcy){ const rc=Math.round((dcy.max-dcy.hp)*1.5), ok=rc>0&&S.money>=rc;
     openSheet(`<h3>Lockvogel</h3><p>Ein Transporter voller leerer Kartons. Diebe halten ihn für Beute und laufen lieber zu ihm als zu deinen echten Wagen. Stell ihn zwischen Posten, dann laufen sie direkt in die Netze. Zustand ${Math.round(dcy.hp)} von ${dcy.max}.</p>
       <div class="opt ${ok?"":"off"}" ${ok?'data-go="1"':""}><div><b>Neue Kartons einladen</b><span></span></div><em>${rc||""}</em></div>
@@ -1501,7 +1507,7 @@ function cityTap(x,y){
       ()=>{ const b=document.querySelector("[data-go]"); if(b) b.onclick=()=>{ S.money-=rc; dcy.hp=dcy.max; $("sheet").innerHTML=""; };
         document.querySelector("[data-rm]").onclick=()=>{ S.decoys=S.decoys.filter(o=>o!==dcy); $("sheet").innerHTML=""; }; });
     return; }
-  const post=S.posts.find(p=>dist(p,{x,y})<0.6);
+  const post=S.posts.find(p=>dist(p,{x,y})<0.75);
   if(post){ const rc=Math.round((post.max-post.hp)*3), ok=rc>0&&S.money>=rc;
     openSheet(`<h3>Wachposten</h3><p>Zustand ${Math.round(post.hp)} von ${post.max}. Vorrat ${post.stock} von ${postMax()}, ${inRange(post)?"wird direkt nachgefüllt":"braucht einen Versorgungswagen"}.${post.away?" Die Leute sind gerade auf Razzia.":""}</p>
       ${post.away?`<div class="opt" data-rc="1"><div><b>Trupp zurückrufen</b><span>Die Wachleute gehen auf ihre Posten zurück. Der Schaden am Versteck bleibt.</span></div><em></em></div>`:""}
@@ -1727,7 +1733,7 @@ function drawTower(dt){
     c.setLineDash([6,6]); c.strokeStyle="rgba(255,255,255,.25)"; c.strokeRect(30,ROOF+10,440,nextH-16); c.setLineDash([]);
     c.fillStyle=can?"#FBF8F2":"rgba(255,255,255,.12)"; c.beginPath(); c.roundRect(150,ROOF+12,200,34,17); c.fill();
     c.fillStyle=can?"#1B1A17":"rgba(255,255,255,.5)"; c.font="800 13px Archivo, system-ui, sans-serif"; c.fillText(`${n+1}. Etage bauen · ${cost}`,250,ROOF+34);
-    hits.push({x:150,y:ROOF+12,w:200,h:34,act:()=>buildFloor()}); }
+    hits.push({x:140,y:ROOF+4,w:220,h:50,act:()=>buildFloor()}); }
   for(let f=0;f<n;f++){
     const Y=floorTop(f), F=W.floors[f], d=dirOf(f), laneY=Y+BAND_Y, kid=f===0&&!S.factory;
     // Raum
@@ -1795,7 +1801,7 @@ function drawTower(dt){
       const dy=laneY-74;
       if(has){ c.fillStyle="#1F7A55"; c.fillRect(side,dy,10,28); c.fillStyle="#F2B441"; c.fillRect(side+2,dy+4,6,3); }
       else if(S.factory&&f>0){ c.setLineDash([3,3]); c.strokeStyle="rgba(255,255,255,.7)"; c.strokeRect(side,dy,10,28); c.setLineDash([]); }
-      hits.push({x:side-10,y:dy-6,w:30,h:40,act:()=>openIntake(f)}); }
+      hits.push({x:side-16,y:dy-10,w:44,h:52,act:()=>openIntake(f)}); }
     // Warenausgang am Etagenende: Hier rutscht fertige Ware direkt ins Lager
     { const ende=d===1?X0+SLW*L-2:X0+2, ri=d===1?1:-1, ry=laneY+8, frisch=F.ausgang&&S.t-F.ausgang<0.6;
       c.fillStyle="#4A4740"; c.beginPath();
@@ -1818,7 +1824,7 @@ function drawTower(dt){
       for(const [band,yy] of [["oben",ly],["unten",py]]){ const an=w&&w.band===band;
         c.strokeStyle=an?(frisch?"#F2B441":"rgba(242,180,65,.55)"):"rgba(255,255,255,.18)"; c.lineWidth=an&&frisch?3:2; c.lineCap="round";
         c.beginPath(); c.moveTo(ax,ly+6); c.quadraticCurveTo(bx,ly+6,bx,yy); c.stroke(); } }
-    hits.push({x:sx-8,y:Yt,w:30,h:Yb-Yt,act:()=>openLift(f)}); }
+    hits.push({x:sx-15,y:Yt,w:44,h:Yb-Yt,act:()=>openLift(f)}); }
 
 }
 function renderHand(){
@@ -2168,8 +2174,9 @@ function hud(){
       return `<div class="m"><b>${M.n}</b><div class="p">${uhrPreis(k)}</div><div class="h">${Math.round(uhrPreis(k)/M.p0*100)}% in der Boutique</div>
         <div class="h">${perMin("uhr_"+k)} pro Minute${lager?", "+lager+" im Lager":""}</div></div>`; }).join("");
     document.querySelectorAll("[data-uh]").forEach(b=>b.onclick=()=>{ const k=b.dataset.uh; if(S.money<UHREN[k].unlock) return; S.money-=UHREN[k].unlock; U.open[k]=true; });
-    { const mU=stockung(), tU = mU ? mU.t+` <button id="tipGo">Zeig mir wo</button>` : `In der Boutique kauft etwa alle 14 Sekunden jemand. Jede verkaufte Uhr drückt den Preis ihres Modells, er erholt sich langsam. Ein Zertifikat bringt ein Drittel mehr.`;
-      if($("tip").dataset.h!==tU){ $("tip").dataset.h=tU; $("tip").innerHTML=tU; const gb=$("tipGo"); if(gb&&mU) gb.onclick=mU.go; } }
+    { const mU=stockung(), tU = mU ? tipKurz(mU.t,true) : tipKurz(`In der Boutique kauft etwa alle 14 Sekunden jemand. Jede verkaufte Uhr drückt den Preis ihres Modells, er erholt sich langsam. Ein Zertifikat bringt ein Drittel mehr.`);
+      if($("tip").dataset.h!==tU){ $("tip").dataset.h=tU; $("tip").innerHTML=tU; $("tip").classList.remove("auf");
+        const gb=$("tipGo"); if(gb&&mU) gb.onclick=e=>{ e.stopPropagation(); mU.go(); }; } }
     alarmCheck(); regionCard(); return; }
   $("market").innerHTML=Object.entries(MODELS).map(([k,M])=>{
     if(!S.open[k]) return `<div class="m" data-mk="${k}"><b>${shoeIcon(k)}${M.n}</b><div class="p">${M.p0}</div><div class="h">frischer Markt</div>
@@ -2195,8 +2202,17 @@ function hud(){
     : S.factory && !S.floors.some(F=>F.slots.some(m=>m&&m.t==="asm")) ? `Werkstatt offen. <b>Zuschnitt, Presse, Montage</b> sind viel schneller als die Werkbank.`
     : `Ausgehobene Verstecke machen ein Viertel frei. Ein Laden dort ist ein neuer Markt.`;
   // Nur neu aufbauen, wenn sich der Text ändert, sonst verschluckt die Zeile Tipps auf den Knopf
-  if($("tip").dataset.h!==tipHtml){ $("tip").dataset.h=tipHtml; $("tip").innerHTML=tipHtml;
-    const g=$("tipGo"); if(g&&melder) g.onclick=melder.go; }
+  const tipKurzHtml=tipKurz(tipHtml.replace(/ <button id="tipGo">Zeig mir wo<\/button>/,""), !!melder);
+  if($("tip").dataset.h!==tipKurzHtml){ $("tip").dataset.h=tipKurzHtml; $("tip").innerHTML=tipKurzHtml; $("tip").classList.remove("auf");
+    const g=$("tipGo"); if(g&&melder) g.onclick=e=>{ e.stopPropagation(); melder.go(); }; }
+}
+// Der Melder zeigt nur den ersten Satz. Wer mehr wissen will, tippt darauf.
+// Katyas Test: Lange Meldungen werden überlesen, kurze nicht.
+function tipKurz(html,mitKnopf){
+  const teile=html.split(/(?<=\.)\s+/);
+  const ersterSatz=teile.shift()||html, rest=teile.join(" ");
+  return `<span class="kurz">${ersterSatz}</span>${rest?`<span class="rest">${rest}</span>`:""}`
+    +(mitKnopf?` <button id="tipGo">Zeig mir wo</button>`:"");
 }
 // Der Melder: sucht die erste Ursache, die gerade bremst, und liefert Text und Ziel für "Zeig mir wo"
 function stockung(){
@@ -2359,6 +2375,7 @@ if(typeof window!=="undefined" && typeof requestAnimationFrame!=="undefined"){
   $("tTurm").onclick=()=>switchView("turm"); $("tStadt").onclick=()=>switchView("stadt");
   $("tForsch").onclick=()=>{ if(S.uhr&&S.haus==="uhren") forschungSheet2(); else if(S.uhr) openSheet(`<h3>Forschung abgeschlossen</h3><p>Sohle hat alles erforscht. Die Manufaktur oben hat ihre eigene Forschung.</p>`); else if(S.floors.length>=3) researchSheet(); else openSheet(`<h3>Forschung</h3><p>Die Forschung öffnet sich, sobald dein Haus <b>drei Etagen</b> hat. Bis dahin: Produktion und Stadt in den Griff bekommen.</p>`); };
   $("pause").onclick=()=>{ paused=!paused; setPauseUI(); };
+  $("tip").onclick=()=>$("tip").classList.toggle("auf");   // Tipp auf den Melder zeigt den Rest
   $("fleet").onclick=fleetSheet; $("resbar").onclick=()=>$("tForsch").onclick(); $("stock").onclick=overview;
   tcv.addEventListener("click",e=>{ const r=tcv.getBoundingClientRect(), x=(e.clientX-r.left)/TS, y=(e.clientY-r.top)/TS;
     for(let k=hits.length-1;k>=0;k--){ const h=hits[k]; if(x>=h.x&&x<=h.x+h.w&&y>=h.y&&y<=h.y+h.h){ h.act(); return; } } });
