@@ -48,6 +48,7 @@ canvas{display:block; width:100%; border-radius:12px}
 .m button{appearance:none; width:100%; margin-top:6px; font:inherit; font-weight:700; font-size:11.5px; cursor:pointer; background:var(--ink); color:var(--card); border:0; border-radius:7px; padding:7px}
 .m button:disabled{opacity:.35}
 .sheet{position:fixed; inset:0; background:rgba(20,18,14,.45); display:flex; align-items:flex-end; z-index:20}
+.top{position:relative; z-index:22; background:var(--bg)}   /* über dem Fenster, damit Geld und Paare sichtbar bleiben */
 .sheet .in{background:var(--card); width:100%; max-width:520px; margin:0 auto; border-radius:16px 16px 0 0; padding:16px 14px calc(18px + env(safe-area-inset-bottom,0px)); max-height:85vh; overflow-y:auto}
 .sheet h3{margin:0 0 4px; font-size:18px; font-weight:800}
 .sheet p{margin:0 0 12px; font-size:13px; color:var(--soft); line-height:1.45}
@@ -398,7 +399,15 @@ function cityStep(){
   // Transporter
   for(const tr of S.trucks){
     const src=S.sources[tr.src], p=tr.path, Lp=pathLen(p);
-    if(tr.dir===-1 && tr.d<=0){ tr.d=0; if(src.left<=0){ tr.parked=true; } else { tr.parked=false; tr.dir=1; tr.cargo=Math.min(RES().laster?10:6,src.left); src.left-=tr.cargo;
+    if(tr.dir===-1 && tr.d<=0){ tr.d=0;
+      // Ist die Quelle leer und es gibt anderswo dieselbe Sorte, fährt der Transporter dorthin.
+      // Sonst stehen am Ende alle Wagen an leeren Gruben, kosten Geld und die Fabrik hungert.
+      if(src.left<=0){ const ersatz=S.sources.map((s2,i2)=>({s2,i2})).filter(o=>o.s2.k===src.k&&o.s2.left>0)
+          .sort((a,b)=>pathLen(pathOf(a.s2))-pathLen(pathOf(b.s2)))[0];
+        if(ersatz){ src.trucks=Math.max(0,src.trucks-1); ersatz.s2.trucks++; tr.src=ersatz.i2; tr.path=pathOf(ersatz.s2); tr.d=0; tr.dir=-1; tr.parked=false;
+          if(!S.seen.umgesetzt){ S.seen.umgesetzt=true; pop(ersatz.s2,"Transporter fährt jetzt hierher","#1F7A55"); }
+          continue; } }
+      if(src.left<=0){ tr.parked=true; } else { tr.parked=false; tr.dir=1; tr.cargo=Math.min(RES().laster?10:6,src.left); src.left-=tr.cargo;
       // Neue Quelle wird gesucht, sobald eine zur Neige geht, nicht erst wenn sie leer ist
       if(src.left<=src.max*0.25&&!src.gone){ src.gone=true; S.newSrc=(S.newSrc||[]); S.newSrc.push({k:src.k,t:S.t+45}); } } }
     else if(tr.dir===1 && tr.d>=Lp){ tr.d=Lp;
@@ -485,7 +494,11 @@ function cityStep(){
       if(free.length){ S.pend={di:S.districts.indexOf(free[0]), src:-1, t0:S.t}; pop(free[0],"Neue Bande zieht ein","#B8432F"); } }
     if(S.pend){ const P=S.pend, d=S.districts[P.di], srcN=P.src>=0?S.nests[P.src]:{alive:true};
       if(!srcN||!srcN.alive){ pop(d,"Bau abgebrochen","#1F7A55"); S.pend=null; }
-      else if(S.t-P.t0>=60){ S.nests.push({x:d.x,y:d.y-0.6,hp:50,max:50,cd:40,alive:true,district:P.di}); d.nest=S.nests.length-1; pop(d,"NEUES VERSTECK","#B8432F"); S.pend=null; } }
+      else if(S.t-P.t0>=60){
+        const plaetze=[{x:d.x,y:d.y-0.6},{x:d.x-1,y:d.y-0.5},{x:d.x+1,y:d.y-0.5},{x:d.x,y:d.y+0.7},{x:d.x-1,y:d.y+0.5},{x:d.x+1,y:d.y+0.5}];
+        const platz=plaetze.find(p=>p.x>0.3&&p.x<8.7&&!S.posts.some(q=>dist(q,p)<1.3)&&!S.sources.some(q=>dist(q,p)<0.9)&&!S.nests.some(n=>n.alive&&dist(n,p)<1));
+        if(!platz){ pop(d,"Bande traut sich nicht","#1F7A55"); S.pend=null; }
+        else { S.nests.push({x:platz.x,y:platz.y,hp:50,max:50,cd:40,alive:true,district:P.di}); d.nest=S.nests.length-1; pop(d,"NEUES VERSTECK","#B8432F"); S.pend=null; } } }
   }
   for(const r of S.raiders){
     if(r.flee){ const home=S.nests.filter(n=>n.alive).sort((a,b)=>dist(a,r)-dist(b,r))[0]||{x:r.x,y:-1};
@@ -590,7 +603,7 @@ function cityStep(){
     const near=S.raiders.find(r=>dist(r,q)<0.8);
     if(near){ near.hp-=2*DT*3; q.hp-=1.2*DT; }
     else { const d=dist(q,n); if(d>0.6){ q.x+=(n.x-q.x)/d*1.2*DT; q.y+=(n.y-q.y)/d*1.2*DT; }
-      else { n.hp-=(q.eq?4.2:3)*DT; q.hp-=(0.4+n.hp/n.max)*3.2*DT;
+      else { n.hp-=(q.eq?5.4:3.4)*DT; q.hp-=(0.4+n.hp/n.max)*2.6*DT;   // Wachleute mit Ausrüstung schlagen härter und halten länger durch
         if(n.hp<=0){ n.alive=false; S.cleared++; S.lastClear=S.t; const dd=S.districts[n.district]; if(dd) delete dd.nest; pop(n,"AUSGEHOBEN","#1F7A55"); beuteZurueck(n); } } }
     if(q.hp<=0){ q.done=true; q.post.away=false; q.post.hp=Math.max(10,q.post.hp-30); pop(q,"verloren","#B8432F"); }
   }
@@ -837,7 +850,7 @@ function selectRes2(k){ const U=S.uhr; U.rp=U.rp||{}; const alt=resTech2();
 
 function forschungSheet2(){ reopen=forschungSheet2; const U=S.uhr;
   const hatAtelier=U.floors.some(F=>F.slots.some(m=>m&&m.t==="atelier"));
-  let h=`<h3>Forschung der Manufaktur</h3><p>Ein <b>Atelier</b> im Haus nimmt fertige Uhren als Muster. Was dort landet, verkaufst du nicht.</p>`;
+  let h=`<h3>Forschung der Manufaktur</h3><p>Ein <b>Atelier</b> im Haus nimmt fertige Uhren als Muster. Was dort landet, verkaufst du nicht. Die Forschung läuft weiter, auch wenn du woanders bist.</p>`;
   if(!hatAtelier) h+=`<p style="color:var(--bad);font-weight:700">Du hast noch kein Atelier. Stell eins auf, in Laufrichtung hinter der Endmontage.</p>`;
   const T=resTech2();
   if(T) h+=`<div style="background:var(--bg);border:2px solid var(--ink);border-radius:12px;padding:12px;margin-bottom:10px">
@@ -992,12 +1005,17 @@ function meisterSheet(){ reopen=meisterSheet; const M=S.mw;
 const resTech=()=>S.curRes&&TECH.find(x=>x.k===S.curRes);
 function resPct(){ const T=resTech(); if(!T) return 0; let a=0,b=0; for(const [k,v] of Object.entries(T.cost)){ a+=Math.min(v,S.resProg[k]||0); b+=v; } return Math.floor(a/b*100); }
 function checkRes(){ const T=resTech(); if(!T) return;
-  if(Object.entries(T.cost).every(([k,v])=>(S.resProg[k]||0)>=v)){ S.research[T.k]=true; S.curRes=null; S.resProg={};
+  if(Object.entries(T.cost).every(([k,v])=>(S.resProg[k]||0)>=v)){ S.research[T.k]=true; S.curRes=null; S.resProg={}; nextRes();
     pop(HQ,"Erforscht: "+T.n,"#7B5BC0");
     hint("resDone",[{id:40, el:()=>$("tForsch"), info:true, t:`Erforscht: ${T.n}. ${T.d} Ist eine Forschung fertig, steht das oben im Balken, und du wählst dort die nächste aus.`}],true); } }
 function addSample(m){ S.sampLog=(S.sampLog||[]).filter(x=>S.t-x.t<90); S.sampLog.push({t:S.t,m}); const T=resTech();
   if(T&&T.cost[m]&&(S.resProg[m]||0)<T.cost[m]){ S.resProg[m]=(S.resProg[m]||0)+1; checkRes(); } else S.rp[m]=(S.rp[m]||0)+1; }
-function selectRes(k){ S.resStart=S.t; const old=resTech(); if(old) for(const m in S.resProg) S.rp[m]=(S.rp[m]||0)+S.resProg[m];
+// Wählt man etwas, während schon geforscht wird, kommt es in die Warteschlange. Noch einmal tippen nimmt es wieder raus.
+function selectRes(k){ S.resQ=S.resQ||[];
+  if(S.curRes&&S.curRes!==k){ const i=S.resQ.indexOf(k); if(i>=0) S.resQ.splice(i,1); else if(!RES()[k]) S.resQ.push(k); return; }
+  starteRes(k); }
+function nextRes(){ S.resQ=(S.resQ||[]).filter(k=>!RES()[k]); const k=S.resQ.shift(); if(k) starteRes(k); }
+function starteRes(k){ S.resStart=S.t; const old=resTech(); if(old) for(const m in S.resProg) S.rp[m]=(S.rp[m]||0)+S.resProg[m];
   S.curRes=k; S.resProg={}; const T=resTech();
   for(const [m,v] of Object.entries(T.cost)){ const take=Math.min(v,S.rp[m]||0); S.resProg[m]=take; S.rp[m]-=take; } checkRes(); }
 function sampRate(m){ const log=(S.sampLog||[]).filter(x=>x.m===m&&S.t-x.t<60);
@@ -1268,9 +1286,21 @@ function releaseDeferred(){ if(!S.defer||!S.defer.length||$("overlay").innerHTML
 <script>
 // Menüs im Turm: Platz, Maschine, Warenannahme, Etage, Aufzug
 /* ================= Eingaben: Turm ================= */
-let reopen=null;
+let reopen=null, sheetGeld=0, sheetT=0;
+// Ein offenes Fenster baut sich nur neu auf, wenn es dort etwas Gesperrtes gibt und das Geld
+// inzwischen reicht. Sonst würde es dauernd neu zeichnen und Tipps verschlucken.
+function sheetAuffrischen(dt){ if(!S||!reopen||!$("sheet").innerHTML) return;
+  sheetT+=dt; if(sheetT<1) return; sheetT=0;
+  if(S.money<=sheetGeld) { sheetGeld=Math.min(sheetGeld,S.money); return; }
+  const gesperrt=[...document.querySelectorAll("#sheet .opt.off, #sheet button:disabled")];
+  if(!gesperrt.length){ sheetGeld=S.money; return; }
+  reopen(); }
 function openSheet(html,bind){ $("sheet").innerHTML=`<div class="sheet"><div class="in">${html}<button class="close" id="cl">Schließen</button></div></div>`;
   $("cl").onclick=()=>{ $("sheet").innerHTML=""; reopen=null; }; bind&&bind();
+  // Tipp neben das Fenster schließt es auch. Katya hat genau das versucht.
+  const hg=document.querySelector("#sheet .sheet");
+  if(hg) hg.onclick=e=>{ if(e.target===hg){ $("sheet").innerHTML=""; reopen=null; } };
+  sheetGeld=S?S.money:0;
   document.querySelectorAll("#sheet .opt.off").forEach((el,_,all)=>el.onclick=()=>{ if(!reopen) return;
     const idx=[...document.querySelectorAll("#sheet .opt")].indexOf(el); reopen();
     const el2=document.querySelectorAll("#sheet .opt")[idx]; if(el2&&!el2.classList.contains("off")) el2.click(); }); }
@@ -1320,11 +1350,13 @@ function openSlot(f,i){ const W=aktivesWerk(); if(!W||!W.floors[f]) return;   //
     h+=`<p style="margin-top:2px"><b>Lederbänder für die Manufaktur:</b> ${a} % aller Zuschnitte. Der Rest bleibt Schäfte für Sneaker. Der Lieferwagen holt die Bänder unten ab.</p>
       <div style="display:flex;gap:6px;margin-bottom:8px">${[0,25,50,75,100].map(v=>`<button data-band="${v}" style="flex:1;appearance:none;font:inherit;font-weight:800;font-size:13px;padding:9px 0;border-radius:9px;border:1px solid var(--line);cursor:pointer;background:${v===a?"var(--ink)":"var(--card)"};color:${v===a?"var(--card)":"var(--soft)"}">${v} %</button>`).join("")}</div>`; }
   if(Object.keys(bedarfVon(W,m)||{}).some(k=>W.lager[k]!==undefined)) h+=`<div class="opt" data-pr="1"><div><b>Vorrang ${m.prio?"aufheben":"geben"}</b><span>${m.prio?"Bekommt gerade doppelt so viel Material wie andere.":"Bekommt bei Knappheit doppelt so viel Material wie andere Maschinen."}</span></div><em>${m.prio?"an":""}</em></div>`;
+  if(m.t==="lab"||m.t==="atelier") h+=`<div class="opt" data-fo="1"><div><b>Forschung öffnen</b><span>Hier wählst du, woran gearbeitet wird. Das läuft weiter, auch wenn du woanders bist.</span></div><em>›</em></div>`;
   h+=`<div class="opt" data-mv="1"><div><b>Verschieben</b><span>Danach auf einen Platz tippen, auch auf einer anderen Etage.</span></div><em></em></div>`;
   h+=`<div class="opt" data-se="1"><div><b>Abbauen</b><span>Du bekommst alles zurück.</span></div><em>+${M.cost}</em></div>`;
   openSheet(h,()=>{
     const tr=document.querySelector("[data-tr]"); if(tr) tr.onclick=()=>{ const c=[0,60,300][(m.lvl||0)+1]; S.money-=c; m.lvl=(m.lvl||0)+1; $("sheet").innerHTML=""; };
     document.querySelectorAll("[data-mo]").forEach(b=>b.onclick=()=>{ m.model=b.dataset.mo; m.buf={}; m.busy=false; $("sheet").innerHTML=""; });
+    const fo=document.querySelector("[data-fo]"); if(fo) fo.onclick=()=>{ $("sheet").innerHTML=""; $("tForsch").onclick(); };
     document.querySelector("[data-mv]").onclick=()=>{ moving={f,i,haus:aktivesHaus().id}; $("sheet").innerHTML=""; };
     const pr=document.querySelector("[data-pr]"); if(pr) pr.onclick=()=>{ m.prio=!m.prio; $("sheet").innerHTML=""; };
     document.querySelectorAll("[data-band]").forEach(b=>b.onclick=()=>{ S.bandAnteil=+b.dataset.band/100; openSlot(f,i); });
@@ -1456,8 +1488,10 @@ function cityTap(x,y){
     return; }
   if(shopD && !shopD.shop){ const blocked=shopD.nest!==undefined, c=500+S.districts.filter(d=>d.shop).length*300, ok=!blocked&&S.money>=c;
     openSheet(`<h3>${shopD.n}</h3><p>${blocked?"Hier sitzt eine Bande. Erst ausheben.":"Ein eigener Laden hier ist ein eigener Markt. Er sättigt sich unabhängig von den anderen, du verkaufst also mehr und zu besseren Preisen. Läuft ein Modell dort gut, zieht das auch Fälscher an."}</p>
-      <div class="opt ${ok?"":"off"}" ${ok?'data-go="1"':""}><div><b>Laden eröffnen</b><span></span></div><em>${c}</em></div>`,
-      ()=>{ const b=document.querySelector("[data-go]"); if(b) b.onclick=()=>{ S.money-=c; shopD.shop=true; $("sheet").innerHTML=""; }; });
+      <div class="opt ${ok?"":"off"}" ${ok?'data-go="1"':""}><div><b>Laden eröffnen</b><span></span></div><em>${c}</em></div>
+      <div class="opt ${S.money>=postCost()?"":"off"}" ${S.money>=postCost()?'data-wp="1"':""}><div><b>Wachposten hier bauen</b><span>Fängt Diebe in der Nähe. Braucht Ausrüstung.</span></div><em>${postCost()}</em></div>`,
+      ()=>{ const b=document.querySelector("[data-go]"); if(b) b.onclick=()=>{ S.money-=c; shopD.shop=true; $("sheet").innerHTML=""; };
+        const w=document.querySelector("[data-wp]"); if(w) w.onclick=()=>{ postBauen(Math.floor(shopD.x)+.5,Math.floor(shopD.y)+.5); $("sheet").innerHTML=""; }; });
     return; }
   const dcy=(S.decoys||[]).find(p=>dist(p,{x,y})<0.6);
   if(dcy){ const rc=Math.round((dcy.max-dcy.hp)*1.5), ok=rc>0&&S.money>=rc;
@@ -1486,11 +1520,16 @@ function cityTap(x,y){
     <div class="opt ${ok?"":"off"}" ${ok?'data-go="1"':""}><div><b>Posten bauen</b><span></span></div><em>${c}</em></div>
     ${S.awake?`<div class="opt ${S.money>=120&&(S.decoys||[]).length<3?"":"off"}" ${S.money>=120&&(S.decoys||[]).length<3?'data-dc="1"':""}><div><b>Lockvogel aufstellen</b><span>Ein Wagen voller leerer Kartons. Diebe laufen lieber zu ihm als zu deinen echten Wagen. Am besten zwischen Posten stellen. Höchstens drei.</span></div><em>120</em></div>`:""}`,
     ()=>{ const dcb=document.querySelector("[data-dc]"); if(dcb) dcb.onclick=()=>{ S.money-=120; S.decoys=S.decoys||[]; S.decoys.push({x:Math.floor(x)+.5,y:Math.floor(y)+.5,hp:40,max:40}); $("sheet").innerHTML=""; };
-      const b=document.querySelector("[data-go]"); if(b) b.onclick=()=>{ S.money-=c; const first=!S.seen.firstPost; S.seen.firstPost=true;
-      const nearHQ=dist({x:Math.floor(x)+.5,y:Math.floor(y)+.5},HQ)<=1.8;
-      S.posts.push({x:Math.floor(x)+.5,y:Math.floor(y)+.5,hp:70,max:70,cd:0,stock:first?postMax():nearHQ?10:0});
-      if(first) pop({x,y},"Grundausstattung","#C98A1B"); else if(!inside) pop({x,y},"leer, braucht Nachschub","#B8432F"); $("sheet").innerHTML=""; }; });
+      const b=document.querySelector("[data-go]"); if(b) b.onclick=()=>{ postBauen(x,y); $("sheet").innerHTML=""; }; });
 }
+// Wachposten bauen, von der Karte aus oder aus dem Viertel heraus
+function postBauen(x,y){ const c=postCost(); if(S.money<c) return;
+  const p={x:Math.floor(x)+.5, y:Math.floor(y)+.5};
+  if(S.posts.some(q=>dist(q,p)<0.7)) return;
+  S.money-=c; const first=!S.seen.firstPost; S.seen.firstPost=true;
+  const nearHQ=dist(p,HQ)<=1.8;
+  S.posts.push({x:p.x,y:p.y,hp:70,max:70,cd:0,stock:first?postMax():nearHQ?10:0});
+  if(first) pop(p,"Grundausstattung","#C98A1B"); else if(!inRange(p)) pop(p,"leer, braucht Nachschub","#B8432F"); }
 
 function truckState(tr){ return tr.parked?"leer":tr.wait?"voll":"fährt"; }
 function removeTruck(src){ const i=S.sources.indexOf(src);
@@ -1537,7 +1576,7 @@ function addTruck(src){ const i=S.sources.indexOf(src), p=pathOf(src); src.truck
 const etaTxt=e=> e===null?"": e===-1?"wird berechnet": e===Infinity?"steht still": e<60?"noch unter einer Minute":"noch etwa "+Math.ceil(e/60)+" Min";
 function researchSheet(){ reopen=researchSheet;
   const T=resTech(), pct=resPct(), hasLab=S.floors.some(F=>F.slots.some(m=>m&&m.t==="lab"));
-  let h=`<h3>Forschung</h3><p>Wähl aus, was du erforschen willst. Ein <b>Labor</b> im Turm nimmt fertige Sneaker vom Band und füllt damit den Balken.</p><p><b>${resFertig()} von ${FW_FORSCHUNGEN}</b> Forschungen für die Fashion Week. Welche fünf das sind, entscheidest du. Die beiden teuersten kannst du auslassen oder später nachholen.</p>`;
+  let h=`<h3>Forschung</h3><p>Wähl aus, was du erforschen willst. Ein <b>Labor</b> im Turm nimmt fertige Sneaker vom Band und füllt damit den Balken. Das läuft weiter, während du baust oder in der Stadt bist.</p><p><b>${resFertig()} von ${FW_FORSCHUNGEN}</b> Forschungen für die Fashion Week. Welche fünf das sind, entscheidest du. Die beiden teuersten kannst du auslassen oder später nachholen.</p>`;
   if(T){ const blk=resBlock();
     h+=`<div style="background:var(--bg);border:2px solid var(--ink);border-radius:12px;padding:12px;margin-bottom:10px">
       <div style="display:flex;justify-content:space-between;font-weight:800"><span>${T.n}</span><span>${blk?"steht":etaTxt(resEta())}</span></div>
@@ -1545,9 +1584,10 @@ function researchSheet(){ reopen=researchSheet;
       ${blk?`<div style="color:var(--bad);font-weight:700;font-size:13px">${blk.msg}</div><button id="showme" style="margin-top:8px;appearance:none;font:inherit;font-weight:800;border:0;border-radius:9px;padding:9px 14px;background:var(--ink);color:var(--card);cursor:pointer">Zeig mir wo</button>`:""}</div>`; }
   else h+=`<p style="font-weight:700;color:var(--ink)">Gerade wird nichts erforscht. Muster landen im Vorrat.</p>`;
   if(!hasLab&&!T) h+=`<p style="color:var(--bad);font-weight:700">Du hast noch kein Labor. Stell eins in den Turm, in Laufrichtung nach einer Montage.</p>`;
-  for(const X of TECH){ const done=RES()[X.k], cur=S.curRes===X.k;
-    h+=`<div class="opt ${done?"off":""}" ${done||cur?"":`data-rs="${X.k}"`} style="${cur?"border-color:#7B5BC0;box-shadow:inset 0 0 0 1px #7B5BC0":""}">
-      <div><b>${X.n}${done?" · erforscht":cur?" · läuft":""}</b><span>${X.d}</span><span style="display:block;margin-top:4px">${Object.keys(X.cost).map(k=>shoeIcon(k,20)).join(" ")}</span></div><em>${done?"✓":cur?pct+"%":"Wählen"}</em></div>`; }
+  if((S.resQ||[]).length) h+=`<p style="margin-top:-4px">Danach in dieser Reihenfolge: ${S.resQ.map((k,i)=>(i+1)+". "+TECH.find(x=>x.k===k).n).join(" · ")}</p>`;
+  for(const X of TECH){ const done=RES()[X.k], cur=S.curRes===X.k, warte=(S.resQ||[]).indexOf(X.k);
+    h+=`<div class="opt ${done?"off":""}" ${done||cur?"":`data-rs="${X.k}"`} style="${cur?"border-color:#7B5BC0;box-shadow:inset 0 0 0 1px #7B5BC0":warte>=0?"border-color:var(--dim)":""}">
+      <div><b>${X.n}${done?" · erforscht":cur?" · läuft":warte>=0?" · vorgemerkt":""}</b><span>${X.d}</span><span style="display:block;margin-top:4px">${Object.keys(X.cost).map(k=>shoeIcon(k,20)).join(" ")}</span></div><em>${done?"✓":cur?pct+"%":warte>=0?(warte+2)+".":"Wählen"}</em></div>`; }
   openSheet(h,()=>{ document.querySelectorAll("[data-rs]").forEach(b=>b.onclick=()=>{ selectRes(b.dataset.rs); researchSheet(); });
     const sm=$("showme"); if(sm) sm.onclick=()=>{ const b=resBlock(); if(b) b.go(); }; });
 }
@@ -2040,6 +2080,24 @@ function alarmCheck(){ releaseDeferred(); marketHint(); fwHint(); shopHint(); in
 }
 
 /* ================= Übersicht ================= */
+// Katya hat auf den Court getippt, um herauszufinden, wie man ihn baut. Hier steht es.
+function modellSheet(k){ reopen=()=>modellSheet(k); const M=MODELS[k];
+  const laufen=S.floors.reduce((a,F)=>a+F.slots.filter(m=>m&&m.t==="asm"&&m.model===k).length,0);
+  const andere=findM(m=>m.t==="asm"&&m.model!==k);
+  const braucht=Object.entries(M.need).map(([t,n])=>n+" "+(t==="schaft"?"Schaft":"Sohle")).join(" und ");
+  let h=`<h3>${M.n}</h3>`;
+  if(!S.open[k]) h+=`<p>Noch nicht entworfen. Entwerfen kostet ${M.unlock}, danach kannst du ihn bauen.</p>
+    <div class="opt ${S.factory&&S.money>=M.unlock?"":"off"}" ${S.factory&&S.money>=M.unlock?'data-ent="1"':""}><div><b>Entwerfen</b><span>Einmalig.</span></div><em>${M.unlock}</em></div>`;
+  else { h+=`<p>Verkauft sich für etwa ${Math.round(S.districts.filter(d=>d.shop).reduce((a,d)=>a+priceIn(d,k),0)/Math.max(1,S.districts.filter(d=>d.shop).length))}. Braucht ${braucht} pro Paar.</p>`;
+    h+= laufen ? `<p><b>${laufen} ${laufen>1?"Montagen bauen":"Montage baut"} gerade ${M.n}.</b></p>`
+              : `<p style="color:var(--bad);font-weight:700">Keine Montage baut ${M.n}. Stell eine um, sonst kommt nichts davon aus deiner Fabrik.</p>`;
+    if(andere) h+=`<div class="opt" data-um="1"><div><b>Montage auf ${M.n} umstellen</b><span>Zeigt dir, welche Maschine du dafür antippst.</span></div><em>›</em></div>`; }
+  openSheet(h,()=>{
+    const e=document.querySelector("[data-ent]"); if(e) e.onclick=()=>{ if(S.money<M.unlock) return; S.money-=M.unlock; S.open[k]=true; modellSheet(k); };
+    const u=document.querySelector("[data-um]"); if(u) u.onclick=()=>{ $("sheet").innerHTML="";
+      guide({tower:()=>andere, opt:`[data-mo="${k}"]`, optT:`Wähl ${M.n}.`, done:()=>!!findM(m=>m.t==="asm"&&m.model===k)},
+        `Tipp diese Montage an und stell sie auf ${M.n} um. Sie baut dann ${M.n} statt ${MODELS[S.floors[andere[0]].slots[andere[1]].model].n}.`); }; });
+}
 function overview(){
   const row=(name,a,b,labA,labB,warn)=>`<div class="frow" style="grid-template-columns:1fr auto auto"><div><b>${name}</b>${warn?`<span style="color:var(--bad);font-weight:700;display:block">${warn}</span>`:""}</div>
     <div style="text-align:right"><b style="color:var(--money)">${a}</b><span style="display:block">${labA}</span></div><div style="text-align:right"><b style="color:${b>a?"var(--bad)":"var(--ink)"}">${b}</b><span style="display:block">${labB}</span></div></div>`;
@@ -2114,12 +2172,14 @@ function hud(){
       if($("tip").dataset.h!==tU){ $("tip").dataset.h=tU; $("tip").innerHTML=tU; const gb=$("tipGo"); if(gb&&mU) gb.onclick=mU.go; } }
     alarmCheck(); regionCard(); return; }
   $("market").innerHTML=Object.entries(MODELS).map(([k,M])=>{
-    if(!S.open[k]) return `<div class="m"><b>${shoeIcon(k)}${M.n}</b><div class="p">${M.p0}</div><div class="h">frischer Markt</div>
+    if(!S.open[k]) return `<div class="m" data-mk="${k}"><b>${shoeIcon(k)}${M.n}</b><div class="p">${M.p0}</div><div class="h">frischer Markt</div>
       <button ${S.factory&&S.money>=M.unlock?"":"disabled"} data-un="${k}">Entwerfen · ${M.unlock}</button></div>`;
     const shops=S.districts.filter(d=>d.shop), avg=Math.round(shops.reduce((a,d)=>a+priceIn(d,k),0)/shops.length);
     const nf=S.fakes.filter(f=>f.m===k).length;
-    return `<div class="m"><b>${shoeIcon(k)}${M.n}</b><div class="p">${avg}</div><div class="h">${Math.round(avg/M.p0*100)+"% in "+shops.length+" "+(shops.length>1?"Läden":"Laden")}</div><div class="h">${perMin("sold_"+k)} pro Minute${S.fin[k]+(S.fin[k+"_s"]||0)>8?", "+(S.fin[k]+(S.fin[k+"_s"]||0))+" warten":""}</div>${nf?`<div class="h" style="color:var(--bad);font-weight:700">${nf} Fälscherbude${nf>1?"n":""}</div>`:""}</div></div>`; }).join("");
-  document.querySelectorAll("[data-un]").forEach(b=>b.onclick=()=>{ const k=b.dataset.un; if(S.money<MODELS[k].unlock) return; S.money-=MODELS[k].unlock; S.open[k]=true; });
+    return `<div class="m" data-mk="${k}"><b>${shoeIcon(k)}${M.n}</b><div class="p">${avg}</div><div class="h">${Math.round(avg/M.p0*100)+"% in "+shops.length+" "+(shops.length>1?"Läden":"Laden")}</div><div class="h">${perMin("sold_"+k)} pro Minute${S.fin[k]+(S.fin[k+"_s"]||0)>8?", "+(S.fin[k]+(S.fin[k+"_s"]||0))+" warten":""}</div>${nf?`<div class="h" style="color:var(--bad);font-weight:700">${nf} Fälscherbude${nf>1?"n":""}</div>`:""}</div></div>`; }).join("");
+  document.querySelectorAll("[data-un]").forEach(b=>b.onclick=e=>{ e.stopPropagation(); const k=b.dataset.un; if(S.money<MODELS[k].unlock) return;
+    S.money-=MODELS[k].unlock; S.open[k]=true; modellSheet(k); });
+  document.querySelectorAll("#market [data-mk]").forEach(el=>el.onclick=()=>modellSheet(el.dataset.mk));
   const noEquip=!S.floors.some(F=>F.slots.some(m=>m&&m.t==="equip"));
   const melder=stockung();
   const tipHtml = melder ? melder.t+` <button id="tipGo">Zeig mir wo</button>` :
@@ -2266,7 +2326,7 @@ function schreibeStand(text){ let wohin=[];
   return wohin; }
 // Ältere Fassungen dieser Seite haben unter anderen Namen gespeichert. Die werden mitgelesen,
 // damit ein Stand nicht verloren geht, nur weil sich der Name geändert hat.
-const ALT_KEYS=["sohle.save.v1"];
+const ALT_KEYS=["sohle.save"+".v1"];   // bewusst zusammengesetzt, damit die englische Fassung den Namen nicht mitübersetzt
 function lieseStand(){
   try{ const t=localStorage.getItem(SAVE_KEY); if(t) return t; }catch(e){}
   for(const k of ALT_KEYS){ if(k===SAVE_KEY) continue;
@@ -2311,7 +2371,7 @@ if(typeof window!=="undefined" && typeof requestAnimationFrame!=="undefined"){
   let acc=0,last=performance.now(),ui=0,saveT=0;
   (function loop(now){ const dt=Math.min(0.25,(now-last)/1000); last=now;
     if(!paused){ acc+=dt; while(acc>=DT){ step(); acc-=DT; } }
-    if(view==="stadt") drawCity(); else drawTower(dt); tutUpdate(); ui+=dt; if(ui>0.2&&!pressing){ ui=0; if(view==="turm") renderHand(); hud(); }
+    if(view==="stadt") drawCity(); else drawTower(dt); tutUpdate(); sheetAuffrischen(dt); ui+=dt; if(ui>0.2&&!pressing){ ui=0; if(view==="turm") renderHand(); hud(); }
     saveT+=dt; if(saveT>2){ saveT=0; saveGame(); }
     requestAnimationFrame(loop); })(last);
   addEventListener("pagehide",saveGame); document.addEventListener("visibilitychange",()=>{ if(document.hidden) saveGame(); });
