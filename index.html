@@ -2231,11 +2231,11 @@ function intro(){ paused=true;
 <script>
 // Speichern im Browser
 /* ================= Speichern ================= */
-const SAVE_KEY="sohle.save.v1";
+const SAVE_KEY="sohle.save.v1.en";
 // In eingebetteten Seiten sperren Safari und die App den Speicher, bis der Spieler die Seite berührt hat.
 // Deshalb: erst prüfen, bei Bedarf Zugriff anfordern, und ehrlich sagen, wenn es nicht geht.
 let speicherGeht=null;
-function pruefeSpeicher(){ try{ localStorage.setItem("sohle.probe","1"); localStorage.removeItem("sohle.probe"); speicherGeht=true; }
+function pruefeSpeicher(){ try{ localStorage.setItem("sohle.probe.en","1"); localStorage.removeItem("sohle.probe.en"); speicherGeht=true; }
   catch(e){ speicherGeht=false; } return speicherGeht; }
 async function speicherFreigeben(){ if(speicherGeht) return true;
   try{ if(document.hasStorageAccess && !(await document.hasStorageAccess())){ await document.requestStorageAccess(); } }catch(e){}
@@ -2243,7 +2243,7 @@ async function speicherFreigeben(){ if(speicherGeht) return true;
 // Wo der Browser den dauerhaften Speicher sperrt (eingebettete Seiten auf dem iPhone),
 // bleibt der Stand wenigstens für diese Sitzung erhalten: sessionStorage überlebt das Neuladen,
 // window.name überlebt es auch dann, wenn selbst das gesperrt ist.
-const NAME_KOPF="sohle.save:";
+const NAME_KOPF="sohle.save.en:";
 function schreibeStand(text){ let wohin=[];
   try{ localStorage.setItem(SAVE_KEY,text); wohin.push("dauerhaft"); speicherGeht=true; }catch(e){ speicherGeht=false; }
   try{ sessionStorage.setItem(SAVE_KEY,text); wohin.push("Sitzung"); }catch(e){}
