@@ -2264,8 +2264,13 @@ function schreibeStand(text){ let wohin=[];
   try{ sessionStorage.setItem(SAVE_KEY,text); wohin.push("Sitzung"); }catch(e){}
   try{ window.name=NAME_KOPF+text; wohin.push("Fenster"); }catch(e){}
   return wohin; }
+// Ältere Fassungen dieser Seite haben unter anderen Namen gespeichert. Die werden mitgelesen,
+// damit ein Stand nicht verloren geht, nur weil sich der Name geändert hat.
+const ALT_KEYS=["sohle.save"+".v1"];   // bewusst zusammengesetzt, damit die englische Fassung den Namen nicht mitübersetzt
 function lieseStand(){
   try{ const t=localStorage.getItem(SAVE_KEY); if(t) return t; }catch(e){}
+  for(const k of ALT_KEYS){ if(k===SAVE_KEY) continue;
+    try{ const t=localStorage.getItem(k); if(t) return t; }catch(e){} }
   try{ const t=sessionStorage.getItem(SAVE_KEY); if(t) return t; }catch(e){}
   try{ if(window.name&&window.name.startsWith(NAME_KOPF)) return window.name.slice(NAME_KOPF.length); }catch(e){}
   return null; }
