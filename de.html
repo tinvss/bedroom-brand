@@ -2222,7 +2222,7 @@ function hud(){
     : S.trucks.some(t=>t.parked) ? `<b>Eine Quelle ist leer.</b> Ihre Transporter stehen und kosten trotzdem. Im Fuhrpark abziehen und woanders einsetzen.`
     : S.floors.some(F=>F.slots.some(m=>m&&m.t==="seal"&&S.t-(m.last||m.born||0)>15)) && S.floors.some(F2=>F2.slots.some(a=>a&&a.t==="asm"&&S.t-(a.last||-99)<10)) ? `<b>Ein Siegel bekommt keine Schuhe.</b> Es muss in Laufrichtung nach der Montage stehen.`
     : ["leder","gummi","metall"].some(k=>fachVoll(k)&&S.trucks.some(t=>t.wait&&S.sources[t.src].k===k)) ? `<b>Ein Lagerfach ist voll</b>, seine Transporter warten. Entweder mehr Maschinen, die diesen Stoff verbrauchen, oder im Fuhrpark einen Transporter davon abziehen.`
-    : S.factory && !S.floors.some(F=>F.slots.some(m=>m&&m.t==="asm")) ? `Werkstatt offen. <b>Zuschnitt, Presse, Montage</b> sind viel schneller als die Werkbank.`
+    : S.factory && !S.floors.some(F=>F.slots.some(m=>m&&m.t==="asm")) ? `Werkstatt offen. Eine <b>Montage</b> baut jedes Modell, deine Werkbänke nur Runner.`
     : `Ausgehobene Verstecke machen ein Viertel frei. Ein Laden dort ist ein neuer Markt.`;
   // Nur neu aufbauen, wenn sich der Text ändert, sonst verschluckt die Zeile Tipps auf den Knopf
   melderZiel = melder && melder.zeig ? melder.zeig : null;
@@ -2291,6 +2291,15 @@ function stockung(){
       return {t:`<b>Deine Läden kommen nicht hinterher.</b> ${her} Schuhe pro Minute hergestellt, ${verk} verkauft. Ein Laden mehr verkauft den Rest.`,
         zeig:{art:"stadt", ziel:frei},
         go:()=>{ switchView("stadt"); guideCity(frei,`Hier kannst du einen Laden eröffnen. Er hat eigene Kunden, der Preis fällt dort getrennt.`); }}; }
+  // 5c. Nur Werkbänke: Damit gibt es nie Court oder Hightop, also auch keine Fashion Week
+  { const benches=S.floors.reduce((a,F)=>a+F.slots.filter(m=>m&&m.t==="bench").length,0);
+    const asm=S.floors.some(F=>F.slots.some(m=>m&&m.t==="asm"));
+    if(S.factory&&benches>=3&&!asm)
+      return {t:`<b>Deine Werkbänke bauen nur Runner.</b> Für Court und Hightop brauchst du eine <b>Montage</b>, und ohne die beiden kommst du nicht in die Fashion Week.`,
+        zeig:{art:"platz", f:0, i:S.floors[0].slots.findIndex(m=>!m)},
+        go:()=>{ switchView("turm"); const frei=firstEmptyAfterAsm()||[0,S.floors[0].slots.findIndex(m=>!m)];
+          guide({tower:()=>frei, opt:'[data-b="asm"]', optT:"Nimm die Montage.", done:()=>S.floors.some(F=>F.slots.some(m=>m&&m.t==="asm"))},
+            "Hier passt eine Montage hin. Sie baut aus Schaft und Sohle jedes Modell, das du entworfen hast."); }}; }
   // 6. Die Forschung kriecht, weil kaum jemand das Modell baut, dessen Muster fehlt
   { const T=resTech(), e=T?resEta():null;
     if(T&&findM(m=>m.t==="lab")&&e!==null&&e!==-1&&e>240){

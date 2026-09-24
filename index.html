@@ -2222,7 +2222,7 @@ function hud(){
     : S.trucks.some(t=>t.parked) ? `<b>A source is empty.</b> Its trucks are idle and still cost you. Pull them from the fleet and use them elsewhere.`
     : S.floors.some(F=>F.slots.some(m=>m&&m.t==="seal"&&S.t-(m.last||m.born||0)>15)) && S.floors.some(F2=>F2.slots.some(a=>a&&a.t==="asm"&&S.t-(a.last||-99)<10)) ? `<b>A sealing machine gets no shoes.</b> It has to sit after assembly, in the direction the belt runs.`
     : ["leder","gummi","metall"].some(k=>fachVoll(k)&&S.trucks.some(t=>t.wait&&S.sources[t.src].k===k)) ? `<b>One storage bay is full</b>, its trucks are waiting. Either more machines that use this material, or pull one of its trucks from the fleet.`
-    : S.factory && !S.floors.some(F=>F.slots.some(m=>m&&m.t==="asm")) ? `Workshop open. <b>Cutter, press, assembly</b> are much faster than the workbench.`
+    : S.factory && !S.floors.some(F=>F.slots.some(m=>m&&m.t==="asm")) ? `Workshop open. An <b>assembly</b> builds every model, your workbenches only build Runners.`
     : `Cleared hideouts free up a district. A shop there is a new market.`;
   // Nur neu aufbauen, wenn sich der Text ändert, sonst verschluckt die Zeile Tipps auf den Knopf
   melderZiel = melder && melder.zeig ? melder.zeig : null;
@@ -2291,6 +2291,15 @@ function stockung(){
       return {t:`<b>Your shops can't keep up.</b> ${her} shoes made per minute, ${verk} sold. One more shop sells the rest.`,
         zeig:{art:"stadt", ziel:frei},
         go:()=>{ switchView("stadt"); guideCity(frei,`You can open a shop here. It has its own customers, and prices drop separately there.`); }}; }
+  // 5c. Nur Werkbänke: Damit gibt es nie Court oder Hightop, also auch keine Fashion Week
+  { const benches=S.floors.reduce((a,F)=>a+F.slots.filter(m=>m&&m.t==="bench").length,0);
+    const asm=S.floors.some(F=>F.slots.some(m=>m&&m.t==="asm"));
+    if(S.factory&&benches>=3&&!asm)
+      return {t:`<b>Your workbenches only build Runners.</b> For Court and Hightop you need an <b>assembly</b>, and without those two you can't get into Fashion Week.`,
+        zeig:{art:"platz", f:0, i:S.floors[0].slots.findIndex(m=>!m)},
+        go:()=>{ switchView("turm"); const frei=firstEmptyAfterAsm()||[0,S.floors[0].slots.findIndex(m=>!m)];
+          guide({tower:()=>frei, opt:'[data-b="asm"]', optT:"Take the assembly.", done:()=>S.floors.some(F=>F.slots.some(m=>m&&m.t==="asm"))},
+            "An assembly fits here. It builds any model you have designed from an upper and a sole."); }}; }
   // 6. Die Forschung kriecht, weil kaum jemand das Modell baut, dessen Muster fehlt
   { const T=resTech(), e=T?resEta():null;
     if(T&&findM(m=>m.t==="lab")&&e!==null&&e!==-1&&e>240){
