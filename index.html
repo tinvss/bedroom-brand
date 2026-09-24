@@ -361,7 +361,7 @@ function werkStep(W){
       const nutzer=verarbeiter(W,x,f+1);
       if(nutzer&&!up.lane[en]){ up.lane[en]=Lf.q.shift(); Lf.c=0; up.weiche={k:x.k,band:"oben",m:nutzer.t,t:S.t}; }
       else if(!up.pass[en]){ up.pass[en]=Lf.q.shift(); Lf.c=0; up.weiche={k:x.k,band:"unten",m:nutzer?nutzer.t:null,t:S.t};
-        hint("passHint",[{id:13, tw:()=>bandRect(f+1), info:true, t:"The dark belt below the working belt is the bypass belt. Anything no machine on a floor needs rides past on it instead of piling up behind the machines. The yellow arrow at the lift shows which belt a part takes."}]); } } });
+        hint("passHint",[{id:13, tw:()=>bandRect(f+1), info:true, t:"The dark belt below is the bypass. Anything no machine here needs rides past instead of piling up."}]); } } });
   // Anlieferung aus dem Lager aufs Band: was die Maschinen im Haus brauchen, reihum
   // Jede Warenannahme beliefert ihre Etage und alle darüber, bis die nächste Annahme kommt
   const intakes=W.intakes.slice().sort((a,b)=>a-b);
@@ -1785,14 +1785,14 @@ function drawTower(dt){
         if(m.out) cItem(c,m.out.k,x+SLW-16,laneY-60);
         if(m._state==="wait"&&m._miss&&!m.full&&!(m.t==="seal")){ c.fillStyle="rgba(232,180,41,.25)"; c.beginPath(); c.arc(x+SLW/2,laneY-20,8,0,7); c.fill();
           c.save(); c.translate(x+SLW/2,laneY-20); c.scale(.6,.6); cItem(c,m._miss==="fertig"?Object.keys(W.models)[0]:m._miss,0,0); c.restore(); }
-        if(m._state==="block"){ c.fillStyle="#D6452E"; c.font="800 8px Archivo, system-ui, sans-serif"; c.textAlign="center"; c.fillText("KOMMT NICHT LOS",x+SLW/2,laneY-18); }
+        if(m._state==="block"){ c.fillStyle="#D6452E"; c.font="800 9px Archivo, system-ui, sans-serif"; c.textAlign="center"; c.fillText("JAM",x+SLW/2,laneY-18); }
         if(m.full){ c.fillStyle="#C98A1B"; c.font="800 8px Archivo, system-ui, sans-serif"; c.textAlign="center"; c.fillText("LAGER VOLL",x+SLW/2,laneY-18); }
         if(m.t==="seal"&&S.t-(m.last||m.born||0)>15&&!W.floors.some(F2=>F2.slots.some(a=>a&&a!==m&&a.t==="seal"&&S.t-(a.last||-99)<10))&&W.floors.some(F2=>F2.slots.some(a=>a&&a.t==="asm"&&S.t-(a.last||-99)<10))){ c.fillStyle="#B8432F"; c.font="800 8px Archivo, system-ui, sans-serif"; c.textAlign="center"; c.fillText("KEINE SCHUHE",x+SLW/2,laneY-18); }
         c.fillStyle=col; c.fillRect(x+SLW/2-1.5,laneY-14,3,7); }
       if(moving&&moving.f===f&&moving.i===i){ c.strokeStyle="#1F7A55"; c.lineWidth=2.6; c.beginPath(); c.roundRect(x+2,laneY-76,SLW-4,66,9); c.stroke(); }
+      if(melderZiel&&melderZiel.art==="platz"&&melderZiel.f===f&&melderZiel.i===i) melderRing(c,{x:x+5,y:laneY-72,w:SLW-10,h:58});
       hits.push({x,y:laneY-76,w:SLW,h:84,act:()=>openSlot(f,i)}); }
-        if(melderZiel&&melderZiel.art==="platz"&&melderZiel.f===f&&melderZiel.i===i) melderRing(c,{x:x+5,y:laneY-72,w:SLW-10,h:58});
-  // Waren gleiten weich
+    // Waren gleiten weich
     F.lane.forEach((it,i)=>{ if(!it) return; const tx=X0+i*SLW+SLW/2, ty=laneY+1;
       if(it.dx===undefined||Math.abs(it.dy-ty)>20){ it.dx=tx; it.dy=ty; } it.dx+=(tx-it.dx)*Math.min(1,dt*9); it.dy=ty; cItem(c,it.k,it.dx,it.dy);
       if(it.to){ const tm=W.floors[it.to.f]&&W.floors[it.to.f].slots[it.to.i]; if(tm){ c.fillStyle=tm.t==="equip"?"#C98A1B":tm.t==="bench"?"#2E6FE4":tm.t==="press"?"#7A7366":"#1B1A17";
@@ -1803,7 +1803,11 @@ function drawTower(dt){
       c.fillStyle="#4A4740"; for(let k=-1;k<SLW*L/12+1;k++){ const xx=X0+k*12+off; if(xx>X0&&xx<X0+SLW*L-3) c.fillRect(xx,py-3,2,7); }
       (F.pass||[]).forEach((it,i)=>{ if(!it) return; const tx=X0+i*SLW+SLW/2;
         if(it.dx===undefined||Math.abs(it.dy-py)>20){ it.dx=tx; it.dy=py; } it.dx+=(tx-it.dx)*Math.min(1,dt*9); it.dy=py;
-        c.save(); c.translate(it.dx,py); c.scale(.62,.62); cItem(c,it.k,0,0); c.restore(); }); }
+        c.save(); c.translate(it.dx,py); c.scale(.62,.62); cItem(c,it.k,0,0); c.restore(); });
+      // Beschriftung: Solange Ware durchfährt, hell, sonst dezent. Ein Etikett erklärt mehr als ein Satz.
+      { const faehrt=(F.pass||[]).some(Boolean);
+        c.fillStyle=faehrt?"#C9A36B":"rgba(160,152,138,.5)"; c.font=`800 8px Archivo, system-ui, sans-serif`;
+        c.textAlign=d===1?"left":"right"; c.fillText("BYPASS", d===1?X0+4:X0+SLW*L-4, py+12); } }
     // Warenannahme dieser Etage
     { const side=d===1?18:472, has=W.intakes.includes(f);
       const dy=laneY-74;
