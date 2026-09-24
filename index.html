@@ -1066,12 +1066,12 @@ function exitOffer(){ const v=valuation(); S.offer=v; paused=true; setPauseUI();
     <p>Based on your revenue, your floors and your shops. Sohle keeps running afterwards and stays on the map as your supplier.</p>
     <p style="font-size:13px">${S.sold} pairs sold · ${S.floors.length} floors · ${S.cleared} hideouts cleared · ${Math.round(S.t/60)} minutes</p>
     <button id="acc">Accept</button><button id="later" style="background:none;color:var(--soft);border:1px solid var(--line);margin-top:8px">Not yet, keep playing</button></div></div>`;
-  $("acc").onclick=()=>{ S.exited=true; S.exitMoney=v; $("overlay").innerHTML=""; paused=false; setPauseUI();
+  $("acc").onclick=()=>{ S.exited=true; S.exitMoney=v; S.money+=v; S.earned+=v; S.exitBezahlt=true; $("overlay").innerHTML=""; paused=false; setPauseUI();
     once("ch2","Neues Gebiet freigeschaltet",`<p>With ${v.toLocaleString("en-US")} behind you, you can start your next company at the top of the city: a <b>watch manufactory</b>. It needs leather straps from Sohle, and those have to arrive in one piece.</p><p>Sohle keeps running and cuts the straps. You switch between the houses at the top of the tower.</p>`); };
   $("later").onclick=()=>{ $("overlay").innerHTML=""; paused=false; setPauseUI(); };
 }
 function regionCard(){ const el=$("region"); if(!el||!el.dataset) return; let h;
-  const zst=zoneState(); if(zst==="locked"||zst==="open"||zst==="wait"){ if(el.dataset.h!==""){ el.dataset.h=""; el.innerHTML=""; } el.onclick=null; return; }
+  const zst=zoneState(); if((zst==="locked"||zst==="wait")&&!S.exited){ if(el.dataset.h!==""){ el.dataset.h=""; el.innerHTML=""; } el.onclick=null; return; }
   if(S.exited&&!S.uhr) h=`<div class="rg ready"><b>Chapter 2 · pick a plot</b><span>Three locations, three prices. Tap to look.</span></div>`;
   else if(S.exited) h=`<div class="rg"><b>Chapter 2 · ${S.uhr.ort.n}</b><span>Your watch manufactory. Switch at the top of the tower.</span></div>`;
   else if(S.fw&&S.fw.state==="live"){ const left=Math.max(0,FW_TIME-(S.t-S.fw.t0)), mm=Math.floor(left/60), ss=String(Math.floor(left%60)).padStart(2,"0");
@@ -2360,6 +2360,7 @@ function saveGame(){ try{ if(!S) return;
 function loadGame(){ try{ const raw=lieseStand(); if(!raw) return false; const o=JSON.parse(raw); if(!o||!o.S) return false;
   S=o.S; S.fakes=S.fakes.map(f=>Object.assign(f,{d:S.districts[f.d]})).filter(f=>f.d);
   S.vans.forEach(v=>{ S.ammo+=v.cargo||0; v.state="home"; v.cargo=0; v.stops=[]; });
+  if(S.exited&&S.exitMoney&&!S.exitBezahlt){ S.money+=S.exitMoney; S.exitBezahlt=true; }   // Auszahlung wurde früher vergessen
   S.posts.forEach(po=>po.away=false); S.caught=S.caught||[]; S.cars=S.cars||[]; S.research=S.research||{}; S.decoys=S.decoys||[]; S.parts=S.parts||{schaft:0,sohle:0}; S.rp=S.rp||{runner:0,court:0,hightop:0}; S.resProg=S.resProg||{}; S.curRes=S.curRes||null;
   tutOn=o.tut&&o.tut.on; tutI=(o.tut&&o.tut.i)||0; if(tutI>=TUT.length||!tutOn&&S.factory) S.tutDone=true; return true; }catch(e){ return false; } }
 const hasSave=()=>!!lieseStand();

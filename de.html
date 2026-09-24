@@ -1066,12 +1066,12 @@ function exitOffer(){ const v=valuation(); S.offer=v; paused=true; setPauseUI();
     <p>Berechnet aus deinem Umsatz, deinen Etagen und Läden. Sohle läuft danach weiter und bleibt als Zulieferer auf der Karte.</p>
     <p style="font-size:13px">${S.sold} Paare verkauft · ${S.floors.length} Etagen · ${S.cleared} Verstecke ausgehoben · ${Math.round(S.t/60)} Minuten</p>
     <button id="acc">Annehmen</button><button id="later" style="background:none;color:var(--soft);border:1px solid var(--line);margin-top:8px">Noch nicht, weiterspielen</button></div></div>`;
-  $("acc").onclick=()=>{ S.exited=true; S.exitMoney=v; $("overlay").innerHTML=""; paused=false; setPauseUI();
+  $("acc").onclick=()=>{ S.exited=true; S.exitMoney=v; S.money+=v; S.earned+=v; S.exitBezahlt=true; $("overlay").innerHTML=""; paused=false; setPauseUI();
     once("ch2","Neues Gebiet freigeschaltet",`<p>Mit ${v.toLocaleString("de-DE")} im Rücken kannst du oben in der Stadt deine nächste Firma gründen: eine <b>Uhrenmanufaktur</b>. Sie braucht Lederbänder von Sohle, und die müssen erst mal heil ankommen.</p><p>Sohle läuft weiter und schneidet die Bänder. Oben im Turm schaltest du zwischen den Häusern um.</p>`); };
   $("later").onclick=()=>{ $("overlay").innerHTML=""; paused=false; setPauseUI(); };
 }
 function regionCard(){ const el=$("region"); if(!el||!el.dataset) return; let h;
-  const zst=zoneState(); if(zst==="locked"||zst==="open"||zst==="wait"){ if(el.dataset.h!==""){ el.dataset.h=""; el.innerHTML=""; } el.onclick=null; return; }
+  const zst=zoneState(); if((zst==="locked"||zst==="wait")&&!S.exited){ if(el.dataset.h!==""){ el.dataset.h=""; el.innerHTML=""; } el.onclick=null; return; }
   if(S.exited&&!S.uhr) h=`<div class="rg ready"><b>Kapitel 2 · Grundstück wählen</b><span>Drei Lagen, drei Preise. Tippen zum Ansehen.</span></div>`;
   else if(S.exited) h=`<div class="rg"><b>Kapitel 2 · ${S.uhr.ort.n}</b><span>Deine Uhrenmanufaktur. Oben im Turm umschalten.</span></div>`;
   else if(S.fw&&S.fw.state==="live"){ const left=Math.max(0,FW_TIME-(S.t-S.fw.t0)), mm=Math.floor(left/60), ss=String(Math.floor(left%60)).padStart(2,"0");
@@ -2360,6 +2360,7 @@ function saveGame(){ try{ if(!S) return;
 function loadGame(){ try{ const raw=lieseStand(); if(!raw) return false; const o=JSON.parse(raw); if(!o||!o.S) return false;
   S=o.S; S.fakes=S.fakes.map(f=>Object.assign(f,{d:S.districts[f.d]})).filter(f=>f.d);
   S.vans.forEach(v=>{ S.ammo+=v.cargo||0; v.state="home"; v.cargo=0; v.stops=[]; });
+  if(S.exited&&S.exitMoney&&!S.exitBezahlt){ S.money+=S.exitMoney; S.exitBezahlt=true; }   // Auszahlung wurde früher vergessen
   S.posts.forEach(po=>po.away=false); S.caught=S.caught||[]; S.cars=S.cars||[]; S.research=S.research||{}; S.decoys=S.decoys||[]; S.parts=S.parts||{schaft:0,sohle:0}; S.rp=S.rp||{runner:0,court:0,hightop:0}; S.resProg=S.resProg||{}; S.curRes=S.curRes||null;
   tutOn=o.tut&&o.tut.on; tutI=(o.tut&&o.tut.i)||0; if(tutI>=TUT.length||!tutOn&&S.factory) S.tutDone=true; return true; }catch(e){ return false; } }
 const hasSave=()=>!!lieseStand();
