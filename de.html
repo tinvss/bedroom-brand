@@ -392,6 +392,8 @@ function werkStep(W){
 <script>
 // Simulation in der Stadt: Transporter, Läden, Banden, Wachen, Razzia, Fälscher
 /* ================= Stadt ================= */
+// Plätze, auf denen neue Vorkommen auftauchen können
+const SRC_SPOTS=[{x:2.5,y:4.2},{x:6.6,y:4.0},{x:1.5,y:8.4},{x:7.6,y:8.8},{x:3.4,y:9.4},{x:5.6,y:6.0},{x:2.2,y:7.0},{x:6.4,y:11.4},{x:1.2,y:3.0},{x:8.2,y:6.6}];
 function cityStep(){
   // Transporter
   for(const tr of S.trucks){
@@ -408,11 +410,24 @@ function cityStep(){
   // Wer wartet oder an einer leeren Quelle steht, kostet nur ein Drittel: kein Sprit, keine Fahrt
   { const faehrt=S.trucks.filter(t=>!t.wait&&!t.parked).length, steht=S.trucks.length-faehrt;
     S.money-=(faehrt+S.vans.length+steht/3)*truckUpkeep*DT; }
+  // Ohne Quelle für einen Rohstoff, den eine Maschine braucht, steht die Fabrik für immer.
+  // Deshalb hier ein Netz darunter: fehlt eine Sorte ganz und ist nichts unterwegs, wird sie angefordert.
+  if(S.t-(S.srcCheck||0)>10){ S.srcCheck=S.t;
+    const werke=[sohleWerk()].concat(S.uhr?[uhrWerk()]:[]);
+    const braucht=k=>werke.some(W=>W&&W.floors.some(F=>F.slots.some(m=>m&&(bedarfVon(W,m)||{})[k])));
+    for(const k of ["leder","gummi","metall","sand"])
+      if(braucht(k)&&!S.sources.some(s=>s.k===k&&s.left>0)&&!(S.newSrc||[]).some(n=>n.k===k)){
+        S.newSrc=S.newSrc||[]; S.newSrc.push({k,t:S.t+10}); } }
   // Neue Vorkommen, wenn eins erschöpft ist
-  if(S.newSrc&&S.newSrc.length&&S.t>=S.newSrc[0].t){ const ns=S.newSrc.shift(), spots=[{x:2.5,y:4.2},{x:6.6,y:4.0},{x:1.5,y:8.4},{x:7.6,y:8.8},{x:3.4,y:9.4},{x:5.6,y:6.0}]
-      .filter(p=>!S.sources.some(s=>dist(s,p)<1.2)&&!S.posts.some(s=>dist(s,p)<0.8));
-    if(spots.length){ const p=spots[Math.floor(Math.random()*spots.length)]; S.sources.push({x:p.x,y:p.y,k:ns.k,left:1500,max:1500,trucks:0});
-      pop(p,"Neue "+(ns.k==="leder"?"Gerberei":ns.k==="gummi"?"Gummiwerk":"Metallhof")+" entdeckt","#1F7A55"); } }
+  if(S.newSrc&&S.newSrc.length&&S.t>=S.newSrc[0].t){ const ns=S.newSrc[0];
+    // Leer gefahrene Quellen halten keinen Platz mehr besetzt, und notfalls entsteht eine auch neben einem Wachposten
+    const frei=p=>!S.sources.some(s=>s.left>0&&dist(s,p)<1.2);
+    let spots=SRC_SPOTS.filter(p=>frei(p)&&!S.posts.some(s=>dist(s,p)<0.8));
+    if(!spots.length) spots=SRC_SPOTS.filter(frei);
+    if(!spots.length){ ns.t=S.t+20; }   // alles dicht: später noch einmal versuchen, nicht verwerfen
+    else { S.newSrc.shift(); const p=spots[Math.floor(Math.random()*spots.length)];
+      S.sources.push({x:p.x,y:p.y,k:ns.k,left:1500,max:1500,trucks:0});
+      pop(p,"Neue "+(ns.k==="leder"?"Gerberei":ns.k==="gummi"?"Gummiwerk":ns.k==="sand"?"Sandgrube":"Metallhof")+" entdeckt","#1F7A55"); } }
   // Läden verkaufen aus dem Fertiglager
   for(const d of S.districts){ if(!d.shop) continue; const flag=d.flagship==="sohle";
     d.cd-=DT; for(const m in d.s) d.s[m]*=Math.pow(0.9,DT);
