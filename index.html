@@ -264,10 +264,18 @@ const zielVon=src=> src.k==="sand" ? "uhren" : (src.k==="metall" ? (src.ziel||"s
 const zielWerk=tr=>{ const src=S.sources[tr.src]; return src&&zielVon(src)==="uhren"&&S.uhr?uhrWerk():sohleWerk(); };
 const zielName=src=>zielVon(src)==="uhren"?"Manufactory":"Sohle";
 const fleetUsed=()=>S.trucks.length+S.vans.length;
+// Feste Bauplätze im Viertel: links der Laden, rechts die Boutique. Vorher lagen beide
+// auf demselben Punkt, sie standen übereinander und man musste die Mitte erraten.
+const ladenOrt=d=>({x:d.x-0.5,y:d.y});
+const boutiqueOrt=d=>({x:d.x+0.5,y:d.y});
+// Viertel direkt unter dem Turm oder der Manufaktur: dort öffnet der Tipp das Haus, nicht das Viertel
+const antippbar=d=>dist(d,HQ)>1.2&&!(S.uhr&&S.uhr.ort&&dist(d,S.uhr.ort)<1.2);
 
-// Großprojekt: Preis richtet sich nach deinem Umsatz, nicht nach einer festen Zahl
+// Preise, die sich am Umsatz orientieren, legen sich einmal fest und bleiben dann stehen.
+// Vorher wanderten sie mit jedem Verkauf, und man konnte nicht darauf sparen.
 const umsatzProMin=()=>Math.max(200,Math.round(S.earned/Math.max(2,S.t/60)));
-const grossPreis=()=>Math.max(5000,Math.round(umsatzProMin()*20/500)*500);
+function festPreis(k,rechne){ S.preise=S.preise||{}; if(S.preise[k]===undefined) S.preise[k]=rechne(); return S.preise[k]; }
+const grossPreis=()=>festPreis("gross",()=>Math.max(5000,Math.round(umsatzProMin()*20/500)*500));
 const grossOffen=()=>!S.flagship&&(S.curRes||Object.keys(S.research||{}).length>0);
 const allResearched=()=>TECH.every(x=>RES()[x.k]);
 const alleRes2=()=>!!S.uhr&&TECH2.every(x=>RES2()[x.k]);
@@ -916,7 +924,7 @@ const werkstattKaufbar=()=>!!(S.uhr&&RES2().tourbillon&&!werkstattDa()&&!(S.mw&&
 const werkstattGrund=()=>!S.uhr||!RES2().tourbillon?"Only with the tourbillon from research.":werkstattDa()?"You already have one. There is no second.":"Your masterpiece is built. There is no second.";
 // Der erste Mitarbeiter: Steht in Sohle noch eine Werkbank, näht er das Band umsonst. Sonst muss man ihn zurückholen.
 const mitarbeiterDa=()=>S.floors.some(F=>F.slots.some(m=>m&&m.t==="bench"));
-const mitarbeiterPreis=()=>Math.max(4000,Math.round(umsatzProMin()*8/100)*100);
+const mitarbeiterPreis=()=>festPreis("mitarbeiter",()=>Math.max(4000,Math.round(umsatzProMin()*8/100)*100));
 // Sein alter Platz in Sohle. Ist dort noch was frei, zeigt die Werkstatt hin statt zu erklären.
 function freierPlatz(W){ for(let f=0;f<W.floors.length;f++){ const i=W.floors[f].slots.findIndex(x=>!x); if(i>=0) return [f,i]; } return null; }
 const platzInSohle=()=>freierPlatz(sohleWerk());
@@ -930,7 +938,7 @@ function zeigWerkstattPlatz(){ if(!S.uhr||!werkstattKaufbar()) return; const p=f
     "There is room for the workshop here. Tap the slot."); }
 
 function meisterStart(){ if(S.mw||!S.uhr||!RES2().tourbillon) return;
-  S.mw={phase:"sammeln", teile:{}, t0:S.t, preis:grossPreis(), stufe:1};
+  S.mw={phase:"sammeln", teile:{}, t0:S.t, preis:grossPreis(), lohn:Math.max(50000,Math.round(umsatzProMin()*60/1000)*1000), stufe:1};
   once("mw","Der Auftrag",`<p>A big watch house has heard about you. It wants <b>one single piece</b>, the best you can build.</p>
     <p>Four ingredients: sapphire glass, a tourbillon, a dial made of <b>meteorite rock</b> from the edge of the map, and the strap, sewn by your very first employee.</p>
     <p>Your workshop is only a room so far. Two upgrades are missing: the van for the expedition and the bench the piece is built on. Each costs as much as the room.</p>
@@ -1020,7 +1028,7 @@ function meisterUeberfall(){ const M=S.mw; if(!M||M.phase!=="bau") return;
     <p>You can start over. With more guards at the manufactory this time.</p>`); }
 function meisterFertig(){ paused=true; setPauseUI();
   const conf=`<div class="confetti">${Array.from({length:40},(_,i)=>`<i style="left:${(i*29)%100}%;background:${["#E4572E","#2E6FE4","#1F9E6E","#F2B441","#7B5BC0"][i%5]};animation-delay:${(i%9)*0.1}s;animation-duration:${1.6+(i%5)*0.3}s"></i>`).join("")}</div>`;
-  const preis=Math.max(50000,Math.round(umsatzProMin()*60/1000)*1000);   // eine Stunde Umsatz, drei Großprojekte wert
+  const preis=S.mw.lohn||Math.max(50000,Math.round(umsatzProMin()*60/1000)*1000);   // beim Auftrag festgelegt, eine Stunde Umsatz
   S.money+=preis; S.meisterFertig=true;
   $("overlay").innerHTML=`<div class="over"><div class="box win">${conf}<h2>The masterpiece</h2>
     <p>It's finished. A case from your own metal, sapphire glass, a tourbillon, a dial made of meteorite rock.
@@ -1569,34 +1577,10 @@ function cityTap(x,y){
       <div class="opt" data-rc="1"><div><b>Call the squad back</b><span>The guards return to their posts. The damage to the hideout stays.</span></div><em></em></div>`,
       ()=>{ const b=document.querySelector("[data-rc]"); if(b) b.onclick=()=>{ trupp.forEach(q=>q.back=true); pop(n2,"Squad turning back","#7A7366"); $("sheet").innerHTML=""; }; });
     return; }
-  const shopD=S.districts.find(d=>dist(d,{x,y})<0.8);
-  if(shopD && S.uhr && !shopD.boutique && shopD.nest===undefined){ const bc=boutiquePreis(), bok=S.money>=bc, c=500+S.districts.filter(d=>d.shop).length*300, sok=!shopD.shop&&S.money>=c;
-    openSheet(`<h3>${shopD.n}</h3><p>You can open a <b>boutique</b> for watches here. Every boutique has its own buyers, one comes along about every fourteen seconds. When a model sells well, replicas show up there.</p>
-      <div class="opt ${bok?"":"off"}" ${bok?'data-bt="1"':""}><div><b>Open boutique</b><span>Sells watches from the manufactory.</span></div><em>${bc.toLocaleString("en-US")}</em></div>
-      ${shopD.shop?"":`<div class="opt ${sok?"":"off"}" ${sok?'data-go="1"':""}><div><b>Open sneaker shop</b><span>Sells pairs from Sohle.</span></div><em>${c}</em></div>`}`,
-      ()=>{ const b=document.querySelector("[data-bt]"); if(b) b.onclick=()=>{ boutiqueBauen(shopD); $("sheet").innerHTML=""; };
-        const g2=document.querySelector("[data-go]"); if(g2) g2.onclick=()=>{ S.money-=c; shopD.shop=true; $("sheet").innerHTML=""; }; });
-    return; }
-  if(shopD && grossOffen() && shopD.nest===undefined){ const gc=grossPreis(), gok=S.money>=gc, uhren=!!S.uhr;
-    const bauGross=(art)=>{ S.money-=gc; S.flagship=art; shopD.flagship=art; if(art==="sohle") shopD.shop=true;
-      else boutiqueBauen(shopD,true);   // im Flagship-Preis ist die Boutique schon drin
-      once("flagship","Dein Flagship-Store",`<p>Your <b>flagship store</b> now stands in ${shopD.n}. It sells ${art==="sohle"?"sneakers twice as often and 30 percent dearer":"watches almost twice as often and dearer"} than a normal shop.</p>
-        <p>But it's also your biggest window: <b>thieves head for it first</b>, and ${art==="sohle"?"counterfeiters":"replicas"} show up there twice as fast. Put guard posts next to it.</p>`);
-      $("sheet").innerHTML=""; };
-    openSheet(`<h3>${shopD.n}</h3><p><b>Big project.</b> You've earned enough to build one big thing this game. After that it's spent.</p>
-      <div class="opt ${gok?"":"off"}" ${gok?'data-fs="sohle"':""}><div><b>Flagship store for sneakers</b><span>Sells twice as often and 30 percent dearer. Draws thieves and counterfeiters.</span></div><em>${gc.toLocaleString("en-US")}</em></div>
-      ${uhren?`<div class="opt ${gok?"":"off"}" ${gok?'data-fs="uhren"':""}><div><b>Flagship store for watches</b><span>Sells almost twice as often and dearer. Draws crews and replicas.</span></div><em>${gc.toLocaleString("de-DE")}</em></div>`:""}
-      ${shopD.shop?"":`<div class="opt ${S.money>=500+S.districts.filter(d=>d.shop).length*300?"":"off"}" data-go="1"><div><b>Normal shop</b><span>Sells pairs from Sohle.</span></div><em>${500+S.districts.filter(d=>d.shop).length*300}</em></div>`}`,
-      ()=>{ document.querySelectorAll("[data-fs]").forEach(b=>b.onclick=()=>bauGross(b.dataset.fs));
-        const g2=document.querySelector("[data-go]"); if(g2) g2.onclick=()=>{ const c2=500+S.districts.filter(d=>d.shop).length*300; if(S.money<c2) return; S.money-=c2; shopD.shop=true; $("sheet").innerHTML=""; }; });
-    return; }
-  if(shopD && !shopD.shop){ const blocked=shopD.nest!==undefined, c=500+S.districts.filter(d=>d.shop).length*300, ok=!blocked&&S.money>=c;
-    openSheet(`<h3>${shopD.n}</h3><p>${blocked?"A gang sits here. Clear them out first.":"Your own shop here is its own market. It saturates independently of the others, so you sell more and at better prices. When a model sells well there, that draws counterfeiters too."}</p>
-      <div class="opt ${ok?"":"off"}" ${ok?'data-go="1"':""}><div><b>Open shop</b><span></span></div><em>${c}</em></div>
-      <div class="opt ${S.money>=postCost()?"":"off"}" ${S.money>=postCost()?'data-wp="1"':""}><div><b>Build a guard post here</b><span>Catches thieves nearby. Needs gear.</span></div><em>${postCost()}</em></div>`,
-      ()=>{ const b=document.querySelector("[data-go]"); if(b) b.onclick=()=>{ S.money-=c; shopD.shop=true; $("sheet").innerHTML=""; };
-        const w=document.querySelector("[data-wp]"); if(w) w.onclick=()=>{ postBauen(Math.floor(shopD.x)+.5,Math.floor(shopD.y)+.5); $("sheet").innerHTML=""; }; });
-    return; }
+  // Ein Viertel, ein Fenster. Vorher entschied die Tippstelle, welche der drei Varianten kam,
+  // und ein Viertel mit Laden gab gar kein Fenster mehr, sondern einen Wachposten.
+  const shopD=S.districts.find(d=>dist(d,{x,y})<0.95||dist(ladenOrt(d),{x,y})<0.5||dist(boutiqueOrt(d),{x,y})<0.5);
+  if(shopD){ viertelSheet(shopD); return; }
   const dcy=(S.decoys||[]).find(p=>dist(p,{x,y})<0.75);
   if(dcy){ const rc=Math.round((dcy.max-dcy.hp)*1.5), ok=rc>0&&S.money>=rc;
     openSheet(`<h3>Decoy</h3><p>A truck full of empty boxes. Thieves take it for loot and run to it instead of your real vans. Put it between posts and they run straight into the nets. Condition ${Math.round(dcy.hp)} of ${dcy.max}.</p>
@@ -1674,6 +1658,37 @@ function fleetSheet(){ reopen=fleetSheet;
 }
 function addTruck(src){ const i=S.sources.indexOf(src), p=pathOf(src); src.trucks++;
   S.trucks.push({src:i,path:p,d:0,dir:-1,cargo:0,pos:{...p[0]}}); }
+
+/* ================= Ein Viertel: alles an einem Ort ================= */
+const ladenPreis=()=>500+S.districts.filter(d=>d.shop).length*300;
+const vOpt=(ok,attr,titel,text,preis)=>`<div class="opt ${ok?"":"off"}" ${ok?attr:""}><div><b>${titel}</b><span>${text}</span></div><em>${preis?preis.toLocaleString("de-DE"):""}</em></div>`;
+function viertelSheet(d){ reopen=()=>viertelSheet(d);
+  const blocked=d.nest!==undefined, gross=d.flagship;
+  let h=`<h3>${d.n}</h3><p>${blocked?"A gang sits here. Clear them out first, then you can build."
+    :gross?"Your flagship store stands here."
+    :"On the left is the plot for a sneaker shop, on the right the one for a boutique. Every shop has its own customers: its own prices, its own saturation."}</p>`;
+  if(d.shop&&!gross) h+=`<p style="color:var(--money);font-weight:700;margin-top:-6px">Sneaker shop is open.</p>`;
+  if(d.boutique) h+=`<p style="color:var(--money);font-weight:700;margin-top:-6px">Boutique is open.</p>`;
+  if(!blocked&&!d.shop){ const c=ladenPreis();
+    h+=vOpt(S.money>=c,'data-go="1"',"Open a sneaker shop","Sells pairs from Sohle. If a model runs well there, it draws counterfeiters.",c); }
+  if(!blocked&&S.uhr&&!d.boutique){ const bc=boutiquePreis();
+    h+=vOpt(S.money>=bc,'data-bt="1"',"Open a boutique for watches","About every fourteen seconds a buyer turns up. If a model runs well, replicas appear.",bc); }
+  if(!blocked&&grossOffen()){ const gc=grossPreis(), gok=S.money>=gc;
+    h+=`<p style="margin-bottom:6px"><b>Big project.</b> Once per game, then it is gone. The price is fixed, it no longer moves with your revenue.</p>`;
+    h+=vOpt(gok,'data-fs="sohle"',"Flagship store for sneakers","Sells twice as often and 30 per cent dearer. Draws thieves and counterfeiters.",gc);
+    if(S.uhr) h+=vOpt(gok,'data-fs="uhren"',"Flagship store for watches","Sells almost twice as often and dearer. Draws crews and replicas.",gc); }
+  { const pc=postCost(); h+=vOpt(S.money>=pc,'data-wp="1"',"Build a guard post here","Catches thieves nearby. Needs gear.",pc); }
+  openSheet(h,()=>{
+    const b=document.querySelector("[data-go]"); if(b) b.onclick=()=>{ const c=ladenPreis(); if(S.money<c) return; S.money-=c; d.shop=true; $("sheet").innerHTML=""; };
+    const bt=document.querySelector("[data-bt]"); if(bt) bt.onclick=()=>{ boutiqueBauen(d); $("sheet").innerHTML=""; };
+    document.querySelectorAll("[data-fs]").forEach(f=>f.onclick=()=>{ const art=f.dataset.fs, gc=grossPreis(); if(S.money<gc) return;
+      S.money-=gc; S.flagship=art; d.flagship=art;
+      if(art==="sohle") d.shop=true; else boutiqueBauen(d,true);   // im Flagship-Preis ist die Boutique schon drin
+      once("flagship","Dein Flagship-Store",`<p>Your <b>flagship store</b> now stands in ${d.n}. It sells ${art==="sohle"?"sneakers twice as often and 30 per cent dearer":"watches almost twice as often and dearer"} than a normal shop.</p>
+        <p>But it is also your biggest shop window: <b>thieves head for it first</b>, and ${art==="sohle"?"counterfeiters":"replicas"} turn up there twice as fast. Put guard posts next to it.</p>`);
+      $("sheet").innerHTML=""; });
+    const w=document.querySelector("[data-wp]"); if(w) w.onclick=()=>{ postBauen(Math.floor(d.x)+.5,Math.floor(d.y)+.5); $("sheet").innerHTML=""; }; });
+}
 </script>
 <script>
 // Forschungsfenster
@@ -2001,18 +2016,24 @@ function drawCity(){
   S.sources.forEach(s=>{ if(!s.trucks) return; const p=pathOf(s);
     c.strokeStyle="rgba(31,122,85,.55)"; c.lineWidth=3; c.setLineDash([4,10]); c.lineDashOffset=-t*30;
     c.beginPath(); c.moveTo(X(p[0].x),X(p[0].y)); for(let i=1;i<p.length;i++) c.lineTo(X(p[i].x),X(p[i].y)); c.stroke(); c.setLineDash([]); c.lineDashOffset=0; });
-  // Viertel und Läden
-  S.districts.forEach(d=>{ const x=X(d.x), y=X(d.y);
-    if(d.flagship){ c.fillStyle="rgba(0,0,0,.25)"; c.fillRect(x-T*0.44+4,y-T*0.52+5,T*0.88,T*0.7);
-      c.fillStyle="#2B2A26"; c.fillRect(x-T*0.44,y-T*0.52,T*0.88,T*0.7);
-      for(let k=0;k<6;k++){ c.fillStyle=k%2?"#F2D38A":"#C98A1B"; c.fillRect(x-T*0.44+k*T*0.147,y-T*0.52,T*0.147,T*0.12); }
-      c.fillStyle="#F2D38A"; c.font=`800 ${T*0.15}px ${F}`; c.textAlign="center"; c.fillText("FLAGSHIP",x,y-T*0.2); }
-    else if(d.shop){ c.fillStyle="rgba(0,0,0,.18)"; c.fillRect(x-T*0.34+3,y-T*0.3+4,T*0.68,T*0.52);
-      c.fillStyle="#FBF8F2"; c.fillRect(x-T*0.34,y-T*0.3,T*0.68,T*0.52);
-      for(let k=0;k<5;k++){ c.fillStyle=k%2?"#FBF8F2":"#1F7A55"; c.fillRect(x-T*0.34+k*T*0.136,y-T*0.3,T*0.136,T*0.14); }
-      c.fillStyle="#2B2A26"; c.fillRect(x-T*0.1,y-T*0.02,T*0.2,T*0.24); }
+  // Viertel und Läden. Jedes Viertel hat zwei feste Bauplätze: links Sneaker, rechts Uhren.
+  const bauplatz=(x,y,txt)=>{ c.setLineDash([4,4]); c.strokeStyle="rgba(43,42,38,.35)"; c.lineWidth=1.4;
+    c.strokeRect(x-T*0.3,y-T*0.26,T*0.6,T*0.46); c.setLineDash([]);
+    c.fillStyle="rgba(43,42,38,.45)"; c.font=`800 ${T*0.13}px ${F}`; c.textAlign="center"; c.fillText(txt,x,y+T*0.02); };
+  S.districts.forEach(d=>{ const x=X(d.x), y=X(d.y), lx=X(ladenOrt(d).x), bx=X(boutiqueOrt(d).x);
+    if(d.flagship){ c.fillStyle="rgba(0,0,0,.25)"; c.fillRect(lx-T*0.44+4,y-T*0.52+5,T*0.88,T*0.7);
+      c.fillStyle="#2B2A26"; c.fillRect(lx-T*0.44,y-T*0.52,T*0.88,T*0.7);
+      for(let k=0;k<6;k++){ c.fillStyle=k%2?"#F2D38A":"#C98A1B"; c.fillRect(lx-T*0.44+k*T*0.147,y-T*0.52,T*0.147,T*0.12); }
+      c.fillStyle="#F2D38A"; c.font=`800 ${T*0.15}px ${F}`; c.textAlign="center"; c.fillText("FLAGSHIP",lx,y-T*0.2); }
+    else if(d.shop){ c.fillStyle="rgba(0,0,0,.18)"; c.fillRect(lx-T*0.34+3,y-T*0.3+4,T*0.68,T*0.52);
+      c.fillStyle="#FBF8F2"; c.fillRect(lx-T*0.34,y-T*0.3,T*0.68,T*0.52);
+      for(let k=0;k<5;k++){ c.fillStyle=k%2?"#FBF8F2":"#1F7A55"; c.fillRect(lx-T*0.34+k*T*0.136,y-T*0.3,T*0.136,T*0.14); }
+      c.fillStyle="#2B2A26"; c.fillRect(lx-T*0.1,y-T*0.02,T*0.2,T*0.24); }
+    // Unter dem Turm und unter der Manufaktur führt der Tipp ins Haus. Dort keinen Bauplatz versprechen.
+    else if(d.nest===undefined&&antippbar(d)) bauplatz(lx,y,"LADEN");
+    if(S.uhr&&!d.boutique&&d.nest===undefined&&!d.flagship&&antippbar(d)) bauplatz(bx,y,"UHREN");
     c.fillStyle=d.shop?"#1F7A55":"#6E685D"; c.font=`800 ${T*0.18}px ${F}`; c.textAlign="center";
-    c.fillText((d.shop?"":"")+d.n.toUpperCase(),x,y+T*0.46); });
+    c.fillText(d.n.toUpperCase(),x,y+T*0.46); });
   // Solange Wachleute auf Razzia sind, steht die Stadt offen. Das zeigt der Kreis.
   const leer=S.posts.some(p=>p.away);
   c.strokeStyle=leer?"rgba(184,67,47,.75)":"rgba(31,122,85,.6)"; c.fillStyle=leer?"rgba(184,67,47,.07)":"rgba(31,122,85,.06)"; c.lineWidth=leer?3:2; c.setLineDash([8,6]); c.lineDashOffset=-t*6;
@@ -2022,11 +2043,13 @@ function drawCity(){
       c.beginPath(); c.arc(X(S.uhr.ort.x),X(S.uhr.ort.y),X(werferWeite()),0,7); c.fill(); c.stroke(); } }
   c.setLineDash([]); c.lineDashOffset=0;
   // Boutiquen für Uhren und ihre Replikas
-  if(S.uhr) (S.uhr.boutiquen||[]).forEach(B=>{ const d=S.districts[B.d]; if(!d) return; const x=X(d.x), y=X(d.y);
-    c.fillStyle="rgba(0,0,0,.2)"; c.fillRect(x-T*0.3+3,y-T*0.6+4,T*0.6,T*0.4);
-    c.fillStyle="#2B2A26"; c.fillRect(x-T*0.3,y-T*0.6,T*0.6,T*0.4);
-    c.fillStyle="#C98A1B"; c.fillRect(x-T*0.3,y-T*0.6,T*0.6,T*0.08);
-    c.fillStyle="#F2D38A"; c.beginPath(); c.arc(x,y-T*0.38,T*0.08,0,7); c.fill(); });
+  if(S.uhr) (S.uhr.boutiquen||[]).forEach(B=>{ const d=S.districts[B.d]; if(!d) return;
+    // Auf ihrem eigenen Platz rechts, beim Flagship für Uhren dagegen mittig über dem Laden
+    const x=X(d.flagship==="uhren"?ladenOrt(d).x:boutiqueOrt(d).x), y=X(d.y), hoch=d.flagship==="uhren";
+    c.fillStyle="rgba(0,0,0,.2)"; c.fillRect(x-T*0.3+3,y-T*(hoch?0.9:0.3)+4,T*0.6,T*0.4);
+    c.fillStyle="#2B2A26"; c.fillRect(x-T*0.3,y-T*(hoch?0.9:0.3),T*0.6,T*0.4);
+    c.fillStyle="#C98A1B"; c.fillRect(x-T*0.3,y-T*(hoch?0.9:0.3),T*0.6,T*0.08);
+    c.fillStyle="#F2D38A"; c.beginPath(); c.arc(x,y-T*(hoch?0.68:0.08),T*0.08,0,7); c.fill(); });
   if(S.uhr) (S.uhr.repliken||[]).forEach(r=>{ const x=X(r.x), y=X(r.y), w=T*0.34;
     c.fillStyle="#E7DDCC"; c.fillRect(x-w/2,y-w/2,w,w*0.7);
     c.fillStyle="#B8432F"; c.font=`800 ${T*0.12}px ${F}`; c.textAlign="center"; c.fillText("KOPIE",x,y-w/2-2); });
