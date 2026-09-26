@@ -406,16 +406,7 @@ function cityStep(){
   for(const tr of S.trucks){
     const src=S.sources[tr.src], p=tr.path, Lp=pathLen(p);
     if(tr.dir===-1 && tr.d<=0){ tr.d=0;
-      // Ist die Quelle leer und es gibt anderswo dieselbe Sorte, fährt der Transporter dorthin.
-      // Sonst stehen am Ende alle Wagen an leeren Gruben, kosten Geld und die Fabrik hungert.
-      if(src.left<=0){ const ersatz=S.sources.map((s2,i2)=>({s2,i2})).filter(o=>o.s2.k===src.k&&o.s2.left>0)
-          .sort((a,b)=>pathLen(pathOf(a.s2))-pathLen(pathOf(b.s2)))[0];
-        if(ersatz){ src.trucks=Math.max(0,src.trucks-1); ersatz.s2.trucks++; tr.src=ersatz.i2; tr.path=pathOf(ersatz.s2); tr.d=0; tr.dir=-1; tr.parked=false;
-          if(!S.seen.umgesetzt){ S.seen.umgesetzt=true; pop(ersatz.s2,"Transporter fährt jetzt hierher","#1F7A55"); }
-          continue; } }
-      if(src.left<=0){ tr.parked=true; } else { tr.parked=false; tr.dir=1; tr.cargo=Math.min(RES().laster?10:6,src.left); src.left-=tr.cargo;
-      // Neue Quelle wird gesucht, sobald eine zur Neige geht, nicht erst wenn sie leer ist
-      if(src.left<=src.max*0.25&&!src.gone){ src.gone=true; S.newSrc=(S.newSrc||[]); S.newSrc.push({k:src.k,t:S.t+45}); } } }
+      tr.parked=false; tr.dir=1; tr.cargo=RES().laster?10:6; }
     else if(tr.dir===1 && tr.d>=Lp){ tr.d=Lp;
       if(tr.cargo){ const Z=zielWerk(tr); const room=Z.lagerCap-Z.lager[src.k]; if(room<=0){ tr.wait=true; } else { const n=Math.min(room,tr.cargo); Z.lager[src.k]+=n; stat('in_'+src.k,n); tr.cargo-=n; tr.wait=tr.cargo>0; } }
       if(!tr.cargo) tr.dir=-1; }
@@ -1422,12 +1413,12 @@ function cityTap(x,y){
     const von=beimTrupp?S.squads.slice().sort((a,b)=>dist(a,rd)-dist(b,rd))[0]:{x:HQ.x,y:HQ.y-0.4};
     S.shots.push({a:{x:von.x,y:von.y},b:{x:rd.x,y:rd.y},ttl:0.25,max:0.25}); return; }
   const src=S.sources.find(s=>dist(s,{x,y})<0.85);
-  if(src){ const has=src.trucks>0, full=fleetUsed()>=S.fleet, c=has?90:routeCost(src), ok=!full&&S.money>=c&&src.left>0;
+  if(src){ const has=src.trucks>0, full=fleetUsed()>=S.fleet, c=has?90:routeCost(src), ok=!full&&S.money>=c;
     const fc=fleetCost(), fok=S.money>=fc;
     const zielZeile = S.uhr ? (src.k==="metall"
       ? `<p><b>Liefert an:</b></p><div style="display:flex;gap:6px;margin-bottom:8px">${[["sohle","Sohle"],["uhren","Manufaktur"]].map(([id,n])=>`<button data-zl="${id}" style="flex:1;appearance:none;font:inherit;font-weight:800;font-size:13px;padding:9px 0;border-radius:9px;border:1px solid var(--line);cursor:pointer;background:${zielVon(src)===id?"var(--ink)":"var(--card)"};color:${zielVon(src)===id?"var(--card)":"var(--soft)"}">${n}</button>`).join("")}</div>`
       : `<p>Liefert an <b>${zielName(src)}</b>. ${src.k==="sand"?"Sand braucht nur die Manufaktur.":"Leder und Gummi braucht nur Sohle."}</p>`) : "";
-    openSheet(`<h3>${src.n||RAW[src.k].n}</h3>${zielZeile}<p>Noch ${src.left} Einheiten. ${has?src.trucks+" Transporter fahren hier.":"Noch keine Route."} Dein Fuhrpark: ${S.trucks.length} von ${S.fleet}. Jeder Transporter kostet laufend Fahrer und Sprit.</p>
+    openSheet(`<h3>${src.n||RAW[src.k].n}</h3>${zielZeile}<p>${has?src.trucks+" Transporter fahren hier.":"Noch keine Route."} Dein Fuhrpark: ${S.trucks.length} von ${S.fleet}. Jeder Transporter kostet laufend Fahrer und Sprit.</p>
       <div class="opt ${ok?"":"off"}" ${ok?'data-go="1"':""}><div><b>${has?"Noch ein Transporter":"Route bauen"}</b><span>${full?"Fuhrpark ist voll.":"Liefert in dein Lager."}</span></div><em>${c}</em></div>
       <div class="opt ${fok?"":"off"}" ${fok?'data-fl="1"':""}><div><b>Fuhrpark vergrößern</b><span>Platz für einen Transporter mehr.</span></div><em>${fc}</em></div>`,
       ()=>{ const b=document.querySelector("[data-go]"); if(b) b.onclick=()=>{ S.money-=c; addTruck(src); $("sheet").innerHTML=""; };
@@ -1552,11 +1543,11 @@ function fleetSheet(){ reopen=fleetSheet;
   const fc=fleetCost(), steht=S.trucks.filter(t=>t.wait||t.parked).length, cost=Math.round((fleetUsed()-steht*2/3)*truckUpkeep*60);
   let h=`<h3>Fuhrpark</h3><p>${fleetUsed()} von ${S.fleet} Plätzen belegt, zusammen ${cost} pro Minute für Fahrer und Sprit${steht?", "+steht+" davon stehen und kosten nur ein Drittel":""}. Jeder Rohstoff hat ein eigenes Fach mit ${S.lagerCap} Plätzen: Leder ${S.lager.leder}, Gummi ${S.lager.gummi}, Metall ${S.lager.metall}.</p>`;
   if(fleetUsed()>=S.fleet) h+=`<p style="color:var(--bad);font-weight:700;margin-top:-4px">Alle ${S.fleet} Plätze sind belegt. Für einen weiteren Transporter: Fuhrpark unten vergrößern oder woanders mit Minus einen abziehen.</p>`;
-  S.sources.forEach((src,i)=>{ const trs=S.trucks.filter(t=>t.src===i); if(!src.left&&!trs.length) return;   // leere Quellen ausblenden
+  S.sources.forEach((src,i)=>{ const trs=S.trucks.filter(t=>t.src===i);
     const st=trs.map(truckState);
-    const status = !src.left&&!trs.length ? "leer" : !trs.length ? "keine Route" : st.includes("leer") ? "Quelle leer, Transporter stehen" : st.includes("voll") ? "warten, "+(src.k==="leder"?"Leder":src.k==="gummi"?"Gummi":"Metall")+"fach voll" : "fahren";
-    const addCost=src.trucks?90:routeCost(src), canAdd=fleetUsed()<S.fleet&&S.money>=addCost&&src.left>0;
-    h+=`<div class="frow"><div><b>${src.n||RAW[src.k].n} <span style="font-weight:600">· ${src.k==="metall"?"Mitte":i<2?"nah":"draußen"}</span></b><span>${src.left} übrig · <span style="color:${/leer|voll/.test(status)?"var(--bad)":"inherit"}">${status}</span>${S.uhr?` · an <b>${zielName(src)}</b>`:""}</span></div>
+    const status = !trs.length ? "keine Route" : st.includes("voll") ? "warten, "+(src.k==="leder"?"Leder":src.k==="gummi"?"Gummi":"Metall")+"fach voll" : "fahren";
+    const addCost=src.trucks?90:routeCost(src), canAdd=fleetUsed()<S.fleet&&S.money>=addCost;
+    h+=`<div class="frow"><div><b>${src.n||RAW[src.k].n} <span style="font-weight:600">· ${src.k==="metall"?"Mitte":i<2?"nah":"draußen"}</span></b><span><span style="color:${/voll/.test(status)?"var(--bad)":"inherit"}">${status}</span>${S.uhr?` · an <b>${zielName(src)}</b>`:""}</span></div>
       <button data-rm="${i}" ${trs.length?"":"disabled"}>−</button><div class="cnt">${trs.length}</div>
       <button data-ad="${i}" ${canAdd?"":"disabled"} title="${addCost}">+</button></div>`; });
   const vok=fleetUsed()<S.fleet&&S.money>=150;
@@ -1942,15 +1933,15 @@ function drawCity(){
   S.posts.forEach(po=>{ if(po.away) return; c.strokeStyle="rgba(31,122,85,.28)"; c.fillStyle="rgba(31,122,85,.05)"; c.lineWidth=1.2; c.setLineDash([3,5]);
     c.beginPath(); c.arc(X(po.x),X(po.y),X(RES().fern?3.4:2.6),0,7); c.fill(); c.stroke(); c.setLineDash([]); });
   // Rohstoffquellen als Gebäude
-  S.sources.forEach(s=>{ if(s.left<=0&&!s.trucks) return;   // leere Quelle ohne Transporter ist weg
-    const x=X(s.x), y=X(s.y), f=s.left/s.max, col=f>0?RAW[s.k].col:"#A9A091", w=T*0.86, h=T*0.62;
+  S.sources.forEach(s=>{
+    const x=X(s.x), y=X(s.y), f=1, col=RAW[s.k].col, w=T*0.86, h=T*0.62;
     c.fillStyle="rgba(0,0,0,.22)"; c.fillRect(x-w/2+4,y-h/2+5,w,h);
     c.fillStyle=col; c.fillRect(x-w/2,y-h/2,w,h);
     c.fillStyle="rgba(255,255,255,.18)"; for(let k=0;k<3;k++){ c.beginPath(); c.moveTo(x-w/2+k*w/3,y-h/2); c.lineTo(x-w/2+(k+1)*w/3,y-h/2-T*0.12); c.lineTo(x-w/2+(k+1)*w/3,y-h/2); c.fill(); }
     c.fillStyle=col; c.fillRect(x+w*0.28,y-h/2-T*0.32,T*0.1,T*0.34);
     if(f>0&&s.trucks){ c.fillStyle="rgba(200,195,185,.55)"; for(let k=0;k<3;k++){ const ph=(t*0.6+k*0.33)%1; c.beginPath(); c.arc(x+w*0.33+ph*T*0.25,y-h/2-T*0.36-ph*T*0.4,T*(0.06+ph*0.08),0,7); c.fill(); } }
     c.fillStyle="#fff"; c.font=`800 ${T*0.17}px ${F}`; c.textAlign="center"; c.fillText({leder:"LEDER",gummi:"GUMMI",metall:"METALL",sand:"SAND"}[s.k]||s.k.toUpperCase(),x,y+T*0.07);
-    c.fillStyle="rgba(0,0,0,.25)"; c.fillRect(x-w/2,y+h/2+4,w,4); c.fillStyle=f>0.25?"#1F7A55":"#B8432F"; c.fillRect(x-w/2,y+h/2+4,w*f,4); });
+    c.fillStyle="#1F7A55"; c.fillRect(x-w/2,y+h/2+4,w,4); });
   // Verstecke: Hütte mit Wellblech, Glut und Rauch
   S.nests.forEach(n=>{ if(!n.alive) return; const x=X(n.x), y=X(n.y), pl=1+Math.sin(t*3)*0.05;
     if(S.awake){ const g=c.createRadialGradient(x,y,2,x,y,T*0.95*pl); g.addColorStop(0,"rgba(184,67,47,.35)"); g.addColorStop(1,"rgba(184,67,47,0)"); c.fillStyle=g; c.beginPath(); c.arc(x,y,T*0.95*pl,0,7); c.fill(); }
@@ -2255,7 +2246,6 @@ function hud(){
     : lagerSum()===0 ? `<b>Kein Material.</b> In der Stadt eine Route zu einer Gerberei und einem Gummiwerk bauen.`
     : S.raiders.length && noEquip ? `<b>Banden sind unterwegs.</b> Wachposten brauchen Ausrüstung. Stell im Turm einen Ausrüster auf, er braucht Metall.`
     : S.posts.some(p=>p.dry)&&S.ammo<=0 ? `<b>Die Wachleute haben keine Ausrüstung mehr.</b> Der Ausrüster im Turm braucht Metall und Gummi.`
-    : S.trucks.some(t=>t.parked) ? `<b>Eine Quelle ist leer.</b> Ihre Transporter stehen und kosten trotzdem. Im Fuhrpark abziehen und woanders einsetzen.`
     : S.floors.some(F=>F.slots.some(m=>m&&m.t==="seal"&&S.t-(m.last||m.born||0)>15)) && S.floors.some(F2=>F2.slots.some(a=>a&&a.t==="asm"&&S.t-(a.last||-99)<10)) ? `<b>Ein Siegel bekommt keine Schuhe.</b> Es muss in Laufrichtung nach der Montage stehen.`
     : ["leder","gummi","metall"].some(k=>fachVoll(k)&&S.trucks.some(t=>t.wait&&S.sources[t.src].k===k)) ? `<b>Ein Lagerfach ist voll</b>, seine Transporter warten. Entweder mehr Maschinen, die diesen Stoff verbrauchen, oder im Fuhrpark einen Transporter davon abziehen.`
     : S.factory && !S.floors.some(F=>F.slots.some(m=>m&&m.t==="asm")) ? `Werkstatt offen. Eine <b>Montage</b> baut jedes Modell, deine Werkbänke nur Runner.`
@@ -2452,6 +2442,7 @@ function loadGame(){ try{ const raw=lieseStand(); if(!raw) return false; const o
   S=o.S; S.fakes=S.fakes.map(f=>Object.assign(f,{d:S.districts[f.d]})).filter(f=>f.d);
   S.vans.forEach(v=>{ S.ammo+=v.cargo||0; v.state="home"; v.cargo=0; v.stops=[]; });
   if(S.exited&&S.exitMoney&&!S.exitBezahlt){ S.money+=S.exitMoney; S.exitBezahlt=true; }   // Auszahlung wurde früher vergessen
+  S.sources.forEach(s=>{ s.left=s.max; s.gone=false; });   // Quellen gehen nicht mehr aus
   S.posts.forEach(po=>po.away=false); S.caught=S.caught||[]; S.cars=S.cars||[]; S.research=S.research||{}; S.decoys=S.decoys||[]; S.parts=S.parts||{schaft:0,sohle:0}; S.rp=S.rp||{runner:0,court:0,hightop:0}; S.resProg=S.resProg||{}; S.curRes=S.curRes||null;
   tutOn=o.tut&&o.tut.on; tutI=(o.tut&&o.tut.i)||0; if(tutI>=TUT.length||!tutOn&&S.factory) S.tutDone=true; return true; }catch(e){ return false; } }
 const hasSave=()=>!!lieseStand();
