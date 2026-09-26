@@ -26,6 +26,7 @@ html,body{margin:0; background:var(--bg); color:var(--ink); font-family:"Archivo
 #haeuser:empty{display:none}
 #haeuser button{flex:1; appearance:none; font:inherit; font-weight:800; font-size:13px; padding:8px; border-radius:9px; border:1px solid var(--line); background:var(--card); color:var(--soft); cursor:pointer}
 #haeuser button.on{background:var(--ink); color:var(--card); border-color:var(--ink)}
+#haeuser button.zeig{border-color:var(--bad); animation:zg 1.1s ease-in-out infinite}
 #haeuser button i{font-style:normal; color:var(--bad); margin-left:5px}
 .stock{font-size:12px; color:var(--soft); margin:0 2px 4px; padding:7px 0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-height:30px}
 .stock b{color:var(--ink); font-weight:800}
@@ -633,9 +634,12 @@ function cityStep(){
   S.decoys=(S.decoys||[]).filter(dc=>{ if(dc.hp<=0){ pop(dc,"Lockvogel zerlegt","#7A7366"); return false; } return true; });
   S.posts=S.posts.filter(po=>{ if(po.hp<=0){ pop(po,"ÜBERRANNT","#B8432F"); return false; } return true; });
   S.pops=S.pops.filter(p=>(p.ttl-=DT)>0);
-  // Fälscherbuden wachsen und teilen sich
+  // Fälscherbuden wachsen, solange dort dein Modell läuft. Verkaufst du dort nichts mehr,
+  // lohnt sich die Kopie nicht und die Bude macht von selbst zu. Vorher wuchsen sie ewig weiter.
   const born=[];
-  for(const f of S.fakes){ f.str=Math.min(4,f.str+0.016*(1+(fakeSkill()-1)*0.5)*DT);
+  for(const f of S.fakes){ const laeuft=(f.d.s&&f.d.s[f.m]||0)>0.25;
+    f.str = laeuft ? Math.min(4,f.str+0.016*(1+(fakeSkill()-1)*0.5)*DT) : f.str-0.02*DT;
+    if(!laeuft) continue;
     if(f.str>=3&&Math.random()<0.0007&&S.fakes.filter(g=>g.d===f.d).length+born.length<5){ f.str=2; const a=Math.random()*6.3;
       born.push({d:f.d,m:f.m,str:0.8,hit:-9,x:f.d.x+Math.cos(a)*0.95,y:f.d.y+Math.sin(a)*0.55-0.2}); } }
   S.fakes.push(...born);
@@ -1740,7 +1744,7 @@ function drawTower(dt){
     c.setLineDash([6,6]); c.strokeStyle="rgba(255,255,255,.25)"; c.strokeRect(30,ROOF+10,440,nextH-16); c.setLineDash([]);
     c.fillStyle=can?"#FBF8F2":"rgba(255,255,255,.12)"; c.beginPath(); c.roundRect(150,ROOF+12,200,34,17); c.fill();
     c.fillStyle=can?"#1B1A17":"rgba(255,255,255,.5)"; c.font="800 13px Archivo, system-ui, sans-serif"; c.fillText(`${n+1}. Etage bauen · ${cost}`,250,ROOF+34);
-    hits.push({x:140,y:ROOF+4,w:220,h:50,act:()=>buildFloor()}); }
+    hits.push({x:140,y:ROOF-2,w:220,h:60,act:()=>buildFloor()}); }
   for(let f=0;f<n;f++){
     const Y=floorTop(f), F=W.floors[f], d=dirOf(f), laneY=Y+BAND_Y, kid=f===0&&!S.factory;
     // Raum
@@ -1813,7 +1817,7 @@ function drawTower(dt){
       const dy=laneY-74;
       if(has){ c.fillStyle="#1F7A55"; c.fillRect(side,dy,10,28); c.fillStyle="#F2B441"; c.fillRect(side+2,dy+4,6,3); }
       else if(S.factory&&f>0){ c.setLineDash([3,3]); c.strokeStyle="rgba(255,255,255,.7)"; c.strokeRect(side,dy,10,28); c.setLineDash([]); }
-      hits.push({x:side-16,y:dy-10,w:44,h:52,act:()=>openIntake(f)}); }
+      hits.push({x:side-18,y:dy-16,w:50,h:70,act:()=>openIntake(f)}); }
     // Warenausgang am Etagenende: Hier rutscht fertige Ware direkt ins Lager
     { const ende=d===1?X0+SLW*L-2:X0+2, ri=d===1?1:-1, ry=laneY+8, frisch=F.ausgang&&S.t-F.ausgang<0.6;
       c.fillStyle="#4A4740"; c.beginPath();
@@ -1836,7 +1840,7 @@ function drawTower(dt){
       for(const [band,yy] of [["oben",ly],["unten",py]]){ const an=w&&w.band===band;
         c.strokeStyle=an?(frisch?"#F2B441":"rgba(242,180,65,.55)"):"rgba(255,255,255,.18)"; c.lineWidth=an&&frisch?3:2; c.lineCap="round";
         c.beginPath(); c.moveTo(ax,ly+6); c.quadraticCurveTo(bx,ly+6,bx,yy); c.stroke(); } }
-    hits.push({x:sx-15,y:Yt,w:44,h:Yb-Yt,act:()=>openLift(f)}); }
+    hits.push({x:sx-18,y:Yt,w:50,h:Yb-Yt,act:()=>openLift(f)}); }
   // Zum Schluss der Ring auf die klemmende Stelle, damit er über allem liegt
   if(melderZiel){
     if(melderZiel.art==="aufzug") melderRing(c,liftRect(melderZiel.f));
@@ -2110,6 +2114,25 @@ function alarmCheck(){ releaseDeferred(); marketHint(); fwHint(); shopHint(); in
 // Was gerade markiert werden soll. Der Melder setzt es, die Zeichnung liest es.
 // Katyas Test: Text unten wird überlesen, ein Ring am Objekt nicht.
 let melderZiel=null;
+// Katya hat auf die Uhr getippt, um zu sehen, in welcher Reihenfolge die Maschinen stehen müssen.
+function uhrSheet(k){ reopen=()=>uhrSheet(k); const M=UHREN[k], U=S.uhr, W=uhrWerk();
+  const hat=t=>W.floors.some(F=>F.slots.some(m=>m&&m.t===t));
+  const zeile=(von,masch,raus,da)=>`<div class="frow" style="grid-template-columns:1fr auto"><div><b>${MACH2[masch].n}</b><span>${von} → ${raus}</span></div>
+    <div style="font-weight:800;color:${da?"var(--money)":"var(--bad)"}">${da?"steht":"fehlt"}</div></div>`;
+  let h=`<h3>${M.n}</h3><p>Eine Uhr entsteht in dieser Reihenfolge. Jede Maschine muss <b>in Laufrichtung vor</b> der nächsten stehen, die Endmontage also zuletzt.</p>`;
+  h+=zeile("Metall","giess","ein Gehäuse",hat("giess"));
+  h+=zeile("Sand","ofen","Glas",hat("ofen"));
+  h+=zeile("Metall","fein","ein Zahnrad, drei davon je Uhrwerk",hat("fein"));
+  h+=zeile("Drei Zahnräder","werk","ein Uhrwerk",hat("werk"));
+  h+=`<div class="frow" style="grid-template-columns:1fr auto"><div><b>Lederband</b><span>Schneidet <b>Sohle</b> unten für dich. Stell dort den Regler am Zuschnitt höher, der Lieferwagen bringt sie hoch.</span></div>
+    <div style="font-weight:800;color:${U.lager.band>0?"var(--money)":"var(--bad)"}">${U.lager.band} da</div></div>`;
+  h+=zeile("Gehäuse, Glas, Uhrwerk und Band","endm","eine "+M.n,hat("endm"));
+  if(!U.open[k]) h+=`<div class="opt ${S.money>=M.unlock?"":"off"}" ${S.money>=M.unlock?'data-ue="1"':""}><div><b>${M.n} entwerfen</b><span>Einmalig, danach kannst du die Endmontage darauf umstellen.</span></div><em>${M.unlock}</em></div>`;
+  else { const laeuft=W.floors.some(F=>F.slots.some(m=>m&&m.t==="endm"&&m.model===k));
+    h+= laeuft?`<p style="color:var(--money);font-weight:700">Eine Endmontage baut gerade ${M.n}.</p>`
+             : `<p style="color:var(--bad);font-weight:700">Keine Endmontage baut ${M.n}. Tipp eine an und stell sie um.</p>`; }
+  openSheet(h,()=>{ const e=document.querySelector("[data-ue]"); if(e) e.onclick=()=>{ if(S.money<M.unlock) return; S.money-=M.unlock; U.open[k]=true; uhrSheet(k); }; });
+}
 function modellSheet(k){ reopen=()=>modellSheet(k); const M=MODELS[k];
   const laufen=S.floors.reduce((a,F)=>a+F.slots.filter(m=>m&&m.t==="asm"&&m.model===k).length,0);
   const andere=findM(m=>m.t==="asm"&&m.model!==k);
@@ -2191,12 +2214,13 @@ function hud(){
   const home=S.districts[0];
   if(aktivesWerk().name==="uhren"){ const U=S.uhr, B=U.boutique;
     $("market").innerHTML=Object.entries(UHREN).map(([k,M])=>{
-      if(!U.open[k]) return `<div class="m"><b>${M.n}</b><div class="p">${M.p0}</div><div class="h">noch nicht entworfen</div>
+      if(!U.open[k]) return `<div class="m" data-uk="${k}"><b>${M.n}</b><div class="p">${M.p0}</div><div class="h">noch nicht entworfen</div>
         <button ${S.money>=M.unlock?"":"disabled"} data-uh="${k}">Entwerfen · ${M.unlock}</button></div>`;
       const lager=(U.fin[k]||0)+(U.fin[k+"_s"]||0);
-      return `<div class="m"><b>${M.n}</b><div class="p">${uhrPreis(k)}</div><div class="h">${Math.round(uhrPreis(k)/M.p0*100)}% in der Boutique</div>
+      return `<div class="m" data-uk="${k}"><b>${M.n}</b><div class="p">${uhrPreis(k)}</div><div class="h">${Math.round(uhrPreis(k)/M.p0*100)}% in der Boutique</div>
         <div class="h">${perMin("uhr_"+k)} pro Minute${lager?", "+lager+" im Lager":""}</div></div>`; }).join("");
-    document.querySelectorAll("[data-uh]").forEach(b=>b.onclick=()=>{ const k=b.dataset.uh; if(S.money<UHREN[k].unlock) return; S.money-=UHREN[k].unlock; U.open[k]=true; });
+    document.querySelectorAll("[data-uh]").forEach(b=>b.onclick=e=>{ e.stopPropagation(); const k=b.dataset.uh; if(S.money<UHREN[k].unlock) return; S.money-=UHREN[k].unlock; U.open[k]=true; uhrSheet(k); });
+    document.querySelectorAll("#market [data-uk]").forEach(el=>el.onclick=()=>uhrSheet(el.dataset.uk));
     { const mU=stockung(), tU = mU ? tipKurz(mU.t,true) : tipKurz(`In der Boutique kauft etwa alle 14 Sekunden jemand. Jede verkaufte Uhr drückt den Preis ihres Modells, er erholt sich langsam. Ein Zertifikat bringt ein Drittel mehr.`);
       if($("tip").dataset.h!==tU){ $("tip").dataset.h=tU; $("tip").innerHTML=tU; $("tip").classList.remove("auf");
         const gb=$("tipGo"); if(gb&&mU) gb.onclick=e=>{ e.stopPropagation(); mU.go(); }; } }
@@ -2227,6 +2251,7 @@ function hud(){
   // Nur neu aufbauen, wenn sich der Text ändert, sonst verschluckt die Zeile Tipps auf den Knopf
   melderZiel = melder && melder.zeig ? melder.zeig : null;
   $("fleet").classList.toggle("zeig", !!(melderZiel&&melderZiel.art==="fuhrpark"));
+  document.querySelectorAll("#haeuser [data-haus]").forEach(b=>b.classList.toggle("zeig", !!(melderZiel&&melderZiel.art==="haus"&&melderZiel.id===b.dataset.haus)));
   const tipKurzHtml=tipKurz(tipHtml.replace(/ <button id="tipGo">Zeig mir wo<\/button>/,""), !!melder);
   if($("tip").dataset.h!==tipKurzHtml){ $("tip").dataset.h=tipKurzHtml; $("tip").innerHTML=tipKurzHtml; $("tip").classList.remove("auf");
     const g=$("tipGo"); if(g&&melder) g.onclick=e=>{ e.stopPropagation(); melder.go(); }; }
@@ -2310,6 +2335,14 @@ function stockung(){
         return {t:`<b>${T.n} braucht noch ${f.r} ${f.n}.</b> ${wie} Stell eine Montage von ${jetzt} auf ${f.n} um.`,
           go:()=>{ switchView("turm"); guide({tower:()=>stelle, opt:`[data-mo="${f.m}"]`, optT:`Wähl ${f.n}.`, done:()=>!!findM(m=>m.t==="asm"&&m.model===f.m)},
             `Diese Montage baut ${jetzt}. Stell sie auf ${f.n} um, dann bekommt dein Labor die Muster, die fehlen.`); }}; } } }
+  // 5b2. Fälscher drücken den Preis, und niemand versiegelt
+  { const buden=S.fakes.length, siegel=S.floors.some(F=>F.slots.some(m=>m&&m.t==="seal"));
+    if(buden>=5&&!siegel)
+      return {t:`<b>${buden} Fälscherbuden drücken deine Preise.</b> Ein <b>Siegel</b> im Turm, in Laufrichtung hinter einer Montage, schließt sie und hält neue fern.`,
+        zeig:{art:"platz", f:(firstEmptyAfterAsm()||[0,0])[0], i:(firstEmptyAfterAsm()||[0,0])[1]},
+        go:()=>{ switchView("turm"); guide({tower:firstEmptyAfterAsm, opt:'[data-b="seal"]', optT:"Nimm das Siegel.",
+          done:()=>S.floors.some(F=>F.slots.some(m=>m&&m.t==="seal"))},
+          "Hier passt ein Siegel hin, in Laufrichtung hinter einer Montage. Versiegelte Paare bringen mehr und locken keine Fälscher an."); }}; }
   return null;
 }
 // Der Melder für die Manufaktur: sagt, welches Glied der Kette fehlt
@@ -2329,7 +2362,8 @@ function stockungUhren(){ const W=aktivesWerk(), U=S.uhr;
     return {t:`<b>Zu wenig ${namen[k]}.</b> ${falsch?"Deine Metallroute liefert an Sohle. Tipp die Quelle an und stell sie auf Manufaktur um.":"Deine Maschinen warten darauf."}`,
       go:()=>{ switchView("stadt"); guideCity(quelle(k),`Von hier kommt ${namen[k]}. Tipp die Quelle an${k==="metall"?" und stell ein, an welches Haus sie liefert":" und bau eine Route"}.`); }}; }
   if(U.lager.band<2){ const anteil=Math.round((S.bandAnteil||0)*100);
-    return {t:`<b>Keine Lederbänder.</b> ${anteil?"Der Lieferwagen ist unterwegs oder wurde überfallen.":"In Sohle schneidet gerade niemand Bänder."} Ohne Band steht die Endmontage.`,
+    return {t:`<b>Keine Lederbänder.</b> ${anteil?"Der Lieferwagen ist unterwegs oder wurde überfallen.":"Die Bänder kommen aus deiner alten Fabrik. In Sohle schneidet gerade niemand welche."} Ohne Band steht die Endmontage.`,
+      zeig:{art:"haus", id:"sohle"},
       go:()=>{ S.haus="sohle"; switchView("turm"); const c=findM(m=>m.t==="cut"); if(c) guide({tower:()=>c},"Tipp einen Zuschnitt an und stell den Regler für Lederbänder höher. Der Lieferwagen bringt sie dann nach oben."); }};
   }
   // Zwischenteile
