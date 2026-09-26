@@ -406,15 +406,15 @@ function cityStep(){
   for(const tr of S.trucks){
     const src=S.sources[tr.src], p=tr.path, Lp=pathLen(p);
     if(tr.dir===-1 && tr.d<=0){ tr.d=0;
-      tr.parked=false; tr.dir=1; tr.cargo=RES().laster?10:6; }
+      tr.dir=1; tr.cargo=RES().laster?10:6; }
     else if(tr.dir===1 && tr.d>=Lp){ tr.d=Lp;
       if(tr.cargo){ const Z=zielWerk(tr); const room=Z.lagerCap-Z.lager[src.k]; if(room<=0){ tr.wait=true; } else { const n=Math.min(room,tr.cargo); Z.lager[src.k]+=n; stat('in_'+src.k,n); tr.cargo-=n; tr.wait=tr.cargo>0; } }
       if(!tr.cargo) tr.dir=-1; }
-    if(!tr.wait&&!tr.parked) tr.d+=tr.dir*1.3*DT;
+    if(!tr.wait) tr.d+=tr.dir*1.3*DT;
     tr.pos=pointAt(p,Math.max(0,Math.min(Lp,tr.d)));
   }
   // Wer wartet oder an einer leeren Quelle steht, kostet nur ein Drittel: kein Sprit, keine Fahrt
-  { const faehrt=S.trucks.filter(t=>!t.wait&&!t.parked).length, steht=S.trucks.length-faehrt;
+  { const faehrt=S.trucks.filter(t=>!t.wait).length, steht=S.trucks.length-faehrt;
     S.money-=(faehrt+S.vans.length+steht/3)*truckUpkeep*DT; }
   // Ohne Quelle für einen Rohstoff, den eine Maschine braucht, steht die Fabrik für immer.
   // Deshalb hier ein Netz darunter: fehlt eine Sorte ganz und ist nichts unterwegs, wird sie angefordert.
@@ -1534,13 +1534,13 @@ function postBauen(x,y){ const c=postCost(); if(S.money<c) return;
   S.posts.push({x:p.x,y:p.y,hp:70,max:70,cd:0,stock:first?postMax():nearHQ?10:0});
   if(first) pop(p,"Grundausstattung","#C98A1B"); else if(!inRange(p)) pop(p,"leer, braucht Nachschub","#B8432F"); }
 
-function truckState(tr){ return tr.parked?"leer":tr.wait?"voll":"fährt"; }
+function truckState(tr){ return tr.wait?"voll":"fährt"; }
 function removeTruck(src){ const i=S.sources.indexOf(src);
-  const cand=S.trucks.filter(t=>t.src===i).sort((a,b)=>(b.parked?2:b.dir===-1?1:0)-(a.parked?2:a.dir===-1?1:0))[0];
+  const cand=S.trucks.filter(t=>t.src===i).sort((a,b)=>(b.dir===-1?1:0)-(a.dir===-1?1:0))[0];
   if(!cand) return; if(cand.cargo){ const room=S.lagerCap-S.lager[src.k]; S.lager[src.k]+=Math.max(0,Math.min(room,cand.cargo)); }
   S.trucks=S.trucks.filter(t=>t!==cand); src.trucks--; }
 function fleetSheet(){ reopen=fleetSheet;
-  const fc=fleetCost(), steht=S.trucks.filter(t=>t.wait||t.parked).length, cost=Math.round((fleetUsed()-steht*2/3)*truckUpkeep*60);
+  const fc=fleetCost(), steht=S.trucks.filter(t=>t.wait).length, cost=Math.round((fleetUsed()-steht*2/3)*truckUpkeep*60);
   let h=`<h3>Fuhrpark</h3><p>${fleetUsed()} von ${S.fleet} Plätzen belegt, zusammen ${cost} pro Minute für Fahrer und Sprit${steht?", "+steht+" davon stehen und kosten nur ein Drittel":""}. Jeder Rohstoff hat ein eigenes Fach mit ${S.lagerCap} Plätzen: Leder ${S.lager.leder}, Gummi ${S.lager.gummi}, Metall ${S.lager.metall}.</p>`;
   if(fleetUsed()>=S.fleet) h+=`<p style="color:var(--bad);font-weight:700;margin-top:-4px">Alle ${S.fleet} Plätze sind belegt. Für einen weiteren Transporter: Fuhrpark unten vergrößern oder woanders mit Minus einen abziehen.</p>`;
   S.sources.forEach((src,i)=>{ const trs=S.trucks.filter(t=>t.src===i);
@@ -2003,7 +2003,7 @@ function drawCity(){
     c.fillStyle="#9DB7C4"; c.fillRect(T*0.18,-T*0.09,T*0.05,T*0.18);
     if(tr.cargo){ c.fillStyle=RAW[S.sources[tr.src].k].col; c.fillRect(-T*0.2,-T*0.09,T*0.26,T*0.18); }
     c.restore();
-    if(tr.wait||tr.parked){ c.font=`800 ${T*0.15}px ${F}`; const txt=tr.wait?"LAGER VOLL":"QUELLE LEER", w=c.measureText(txt).width+8;
+    if(tr.wait){ c.font=`800 ${T*0.15}px ${F}`; const txt="LAGER VOLL", w=c.measureText(txt).width+8;
       c.fillStyle="#B8432F"; c.beginPath(); c.roundRect(X(tr.pos.x)-w/2,X(tr.pos.y)-T*0.42,w,T*0.2,4); c.fill(); c.fillStyle="#fff"; c.textAlign="center"; c.fillText(txt,X(tr.pos.x),X(tr.pos.y)-T*0.28); } });
   // Lockvögel: Wagen mit Pappkartons
   (S.decoys||[]).forEach(dc=>{ const x=X(dc.x), y=X(dc.y), sh=dc.hitT&&t-dc.hitT<0.2?Math.sin(t*60)*2:0;
@@ -2194,7 +2194,7 @@ function hud(){
   const teile=W.teile.filter(k=>W.parts[k]>0).map(k=>W.parts[k]+" "+k[0].toUpperCase()+k.slice(1)).join(", ");
   $("stock").innerHTML=`<span style="float:right;color:var(--ink);font-weight:800">Übersicht ›</span>Lager ${roh.map(k=>fx(k)+" "+nam[k]).join(" · ")}, je bis ${W.lagerCap}${teile?" · Teile "+teile:""}${fin?" · fertig: "+fin:""}`;
   { const st=S.trucks.map(truckState), wait=st.filter(x=>x==="voll").length, park=st.filter(x=>x==="leer").length;
-    const stehen=S.trucks.filter(t=>t.wait||t.parked).length;
+    const stehen=S.trucks.filter(t=>t.wait).length;
     $("fleet").innerHTML=`<div><b>Fuhrpark ${fleetUsed()} von ${S.fleet}</b><span>${Math.round((fleetUsed()-stehen*2/3)*truckUpkeep*60)} pro Minute${wait?` · <span class="warn">${wait} warten, Fach voll</span>`:""}${park?` · <span class="warn">${park} stehen an leerer Quelle</span>`:""}</span></div><em>Verwalten</em>`; }
   { const uhrenHaus=S.uhr&&aktivesHaus().id==="uhren";
     const T=uhrenHaus?resTech2():resTech(), pct=uhrenHaus?resPct2():resPct();
@@ -2274,7 +2274,7 @@ function stockung(){
   // Wartet eine Maschine gerade auf diesen Rohstoff?
   const wartet=k=>S.floors.some(F=>F.slots.some(m=>m&&!m.busy&&!m.out&&(braucht[m.t]||[]).includes(k)&&!(m.buf[k]>0)));
   // 1. Das Konto blutet: mehr laufende Kosten als Verkäufe
-  if(S.money<40&&S.trucks.length){ const kosten=Math.round((fleetUsed()-S.trucks.filter(t=>t.wait||t.parked).length*2/3)*truckUpkeep*60), ein=perMin("sold")*Math.round(MODELS.runner.p0*0.6);
+  if(S.money<40&&S.trucks.length){ const kosten=Math.round((fleetUsed()-S.trucks.filter(t=>t.wait).length*2/3)*truckUpkeep*60), ein=perMin("sold")*Math.round(MODELS.runner.p0*0.6);
     if(kosten>ein) return {t:`<b>Du zahlst mehr, als du einnimmst.</b> Dein Fuhrpark kostet etwa ${kosten} pro Minute, verkauft hast du zuletzt für ungefähr ${ein}. Zieh einen Transporter ab, oder bring die Ware in die Läden.`,
       go:()=>{ switchView("stadt"); guideEl(()=>$("fleet"),"Hier ziehst du einen Transporter ab. Er kostet auch dann, wenn er nur wartet."); }}; }
   // 1. Nachschub reicht nicht: Lager leer und jemand wartet darauf
