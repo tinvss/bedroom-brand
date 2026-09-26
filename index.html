@@ -41,6 +41,15 @@ canvas{display:block; width:100%; border-radius:12px}
 .tip:empty{display:none}
 .tip .rest{display:none; margin-top:4px}
 .tip.auf .rest{display:block}
+/* Der Melder hat zugeklappt eine feste Höhe. Vorher wuchs er mit der Textlänge, und jede
+   Meldung schob Forschungsbalken, Lagerzeile und Fuhrpark um bis zu 18 Punkte nach unten.
+   Genau darauf tippt man, und der Tipp ging daneben. */
+.tip{display:flex; flex-wrap:wrap; row-gap:4px; align-items:flex-start; gap:4px 8px}
+.tip .kurz{flex:1 1 0; min-width:0}
+.tip .knopfzeile{flex:0 0 auto; margin-left:auto}
+.tip .rest{flex:1 1 100%}
+.tip:not(.auf) .kurz{display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden}
+.tip:not(.auf){height:62px; overflow:hidden}
 .tip b{color:var(--ink)}
 .tip button{appearance:none; font:inherit; font-weight:800; font-size:12px; border:0; border-radius:8px; padding:6px 10px; margin-left:4px; background:var(--ink); color:var(--card); cursor:pointer}
 .mk{display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; margin-top:10px}
@@ -513,7 +522,10 @@ function cityStep(){
         const plaetze=[{x:d.x,y:d.y-0.6},{x:d.x-1,y:d.y-0.5},{x:d.x+1,y:d.y-0.5},{x:d.x,y:d.y+0.7},{x:d.x-1,y:d.y+0.5},{x:d.x+1,y:d.y+0.5}];
         const platz=plaetze.find(p=>p.x>0.3&&p.x<8.7&&!S.posts.some(q=>dist(q,p)<1.3)&&!S.sources.some(q=>dist(q,p)<0.9)&&!S.nests.some(n=>n.alive&&dist(n,p)<1));
         if(!platz){ pop(d,"The gang backs off","#1F7A55"); S.pend=null; }
-        else { S.nests.push({x:platz.x,y:platz.y,hp:50,max:50,cd:40,alive:true,district:P.di}); d.nest=S.nests.length-1; pop(d,"NEUES VERSTECK","#B8432F"); S.pend=null; } } }
+        // Ein neues Versteck steht sofort so fest wie die alten. Vorher startete es mit 50 Leben,
+        // während die Obergrenze schon bei 250 lag: der Balken sah leer aus und es war ein Geschenk.
+        else { const leben=Math.max(50,Math.round(40*evo()));
+          S.nests.push({x:platz.x,y:platz.y,hp:leben,max:leben,cd:40,alive:true,district:P.di}); d.nest=S.nests.length-1; pop(d,"NEUES VERSTECK","#B8432F"); S.pend=null; } } }
   }
   for(const r of S.raiders){
     if(r.flee){ const home=S.nests.filter(n=>n.alive).sort((a,b)=>dist(a,r)-dist(b,r))[0]||{x:r.x,y:-1};
@@ -2307,6 +2319,9 @@ function overview(){
 }
 
 /* ================= Anzeige ================= */
+// Eine Zeile nur dann neu bauen, wenn sich ihr Inhalt geändert hat. Wer den Inhalt
+// zehnmal pro Sekunde ersetzt, reißt dem Finger das Ziel unter der Kuppe weg.
+function setzeWennNeu(el,html){ if(!el||el.dataset.h===html) return; el.dataset.h=html; el.innerHTML=html; }
 function hud(){
   $("money").innerHTML=Math.round(S.money)+`<u>${S.money<0?"DEBT":"CASH"}</u>`; $("money").style.color=S.money<0?"var(--bad)":"";
   $("pairs").innerHTML=S.sold+"<u>SOLD</u>";
@@ -2316,17 +2331,17 @@ function hud(){
   const W=aktivesWerk(), roh=Object.keys(W.lager), nam={leder:"Leather",gummi:"Rubber",metall:"Metal",sand:"Sand",band:"Straps"};
   const fx=k=>`<b style="color:${W.lager[k]>=W.lagerCap?"var(--bad)":W.lager[k]===0?"var(--ammo)":"var(--ink)"}">${W.lager[k]}</b>`;
   const teile=W.teile.filter(k=>W.parts[k]>0).map(k=>W.parts[k]+" "+k[0].toUpperCase()+k.slice(1)).join(", ");
-  $("stock").innerHTML=`<span style="float:right;color:var(--ink);font-weight:800">Overview ›</span>Storage ${roh.map(k=>fx(k)+" "+nam[k]).join(" · ")}, up to ${W.lagerCap} each${teile?" · parts "+teile:""}${fin?" · finished: "+fin:""}`;
+  setzeWennNeu($("stock"),`<span style="float:right;color:var(--ink);font-weight:800">Overview ›</span>Storage ${roh.map(k=>fx(k)+" "+nam[k]).join(" · ")}, up to ${W.lagerCap} each${teile?" · parts "+teile:""}${fin?" · finished: "+fin:""}`);
   { const st=S.trucks.map(truckState), wait=st.filter(x=>x==="voll").length, park=st.filter(x=>x==="leer").length;
     const stehen=S.trucks.filter(t=>t.wait).length;
-    $("fleet").innerHTML=`<div><b>Fleet ${fleetUsed()} of ${S.fleet}</b><span>${Math.round((fleetUsed()-stehen*2/3)*truckUpkeep*60)} per minute${wait?` · <span class="warn">${wait} waiting, bay full</span>`:""}${park?` · <span class="warn">${park} idle at an empty source</span>`:""}</span></div><em>Manage</em>`; }
+    setzeWennNeu($("fleet"),`<div><b>Fleet ${fleetUsed()} of ${S.fleet}</b><span>${Math.round((fleetUsed()-stehen*2/3)*truckUpkeep*60)} per minute${wait?` · <span class="warn">${wait} waiting, bay full</span>`:""}${park?` · <span class="warn">${park} idle at an empty source</span>`:""}</span></div><em>Manage</em>`); }
   { const uhrenHaus=S.uhr&&aktivesHaus().id==="uhren";
     const T=uhrenHaus?resTech2():resTech(), pct=uhrenHaus?resPct2():resPct();
     const fehlt=uhrenHaus?resFehltText(T,S.uhr.resProg,UHREN):resFehltText(T,S.resProg,MODELS);
     const blk=T&&!uhrenHaus?resBlock():null;
-    if(!T) $("resbar").innerHTML = uhrenHaus ? `<div class="rb"><b>Research</b><span class="eta">nothing picked, tap</span></div>`
-      : (S.floors.length>=3&&S.seen.resDone ? `<div class="rb"><b>Research</b><span class="eta">done, tap for the next one</span></div>` : "");
-    else $("resbar").innerHTML=`<div class="rb"><b>${T.n}</b><div class="bar"><i style="width:${pct}%"></i></div><span class="eta ${blk?"bad":""}">${blk?"stalled, tap":fehlt?"still need "+fehlt:"almost done"}</span></div>`; }
+    if(!T) setzeWennNeu($("resbar"), uhrenHaus ? `<div class="rb"><b>Research</b><span class="eta">nothing picked, tap</span></div>`
+      : (S.floors.length>=3&&S.seen.resDone ? `<div class="rb"><b>Research</b><span class="eta">done, tap for the next one</span></div>` : ""));
+    else setzeWennNeu($("resbar"),`<div class="rb"><b>${T.n}</b><div class="bar"><i style="width:${pct}%"></i></div><span class="eta ${blk?"bad":""}">${blk?"stalled, tap":fehlt?"still need "+fehlt:"almost done"}</span></div>`); }
   { const hs=haeuser(), el=$("haeuser");
     const html = hs.length<2 ? "" : hs.map(h=>{ const n=hausSorgen(h);
       return `<button data-haus="${h.id}" class="${h.id===aktivesHaus().id?"on":""}">${h.n}${n?`<i>${n}</i>`:""}</button>`; }).join("");
@@ -2380,15 +2395,18 @@ function hud(){
   document.querySelectorAll("#haeuser [data-haus]").forEach(b=>b.classList.toggle("zeig", !!(melderZiel&&melderZiel.art==="haus"&&melderZiel.id===b.dataset.haus)));
   const tipKurzHtml=tipKurz(tipHtml.replace(/ <button id="tipGo">Zeig mir wo<\/button>/,""), !!melder);
   if($("tip").dataset.h!==tipKurzHtml){ $("tip").dataset.h=tipKurzHtml; $("tip").innerHTML=tipKurzHtml; $("tip").classList.remove("auf");
+    $("tip").classList.toggle("knopf", !!melder);
     const g=$("tipGo"); if(g&&melder) g.onclick=e=>{ e.stopPropagation(); melder.go(); }; }
 }
 // Der Melder zeigt nur den ersten Satz. Wer mehr wissen will, tippt darauf.
 // Katyas Test: Lange Meldungen werden überlesen, kurze nicht.
 function tipKurz(html,mitKnopf){
-  const teile=html.split(/(?<=\.)\s+/);
+  // Der Punkt steht oft noch im fetten Teil, vor dem schließenden b-Tag.
+  // Ohne das im Blick blieb der ganze Text der erste Satz, und der Melder war lang statt kurz.
+  const teile=html.split(/(?<=\.(?:<\/b>)?)\s+/);
   const ersterSatz=teile.shift()||html, rest=teile.join(" ");
   return `<span class="kurz">${ersterSatz}</span>${rest?`<span class="rest">${rest}</span>`:""}`
-    +(mitKnopf?` <button id="tipGo">Zeig mir wo</button>`:"");
+    +(mitKnopf?`<div class="knopfzeile"><button id="tipGo">Zeig mir wo</button></div>`:"");
 }
 // Der Melder: sucht die erste Ursache, die gerade bremst, und liefert Text und Ziel für "Zeig mir wo"
 function stockung(){
@@ -2432,7 +2450,7 @@ function stockung(){
     for(let f=0;f<W2.floors.length;f++){ const F=W2.floors[f];
       const stehen=F.slots.filter(m=>m&&(m.blockT||0)>40).length;
       if(stehen>=2&&F.slots.filter(Boolean).length>=5)
-        return {t:`<b>Too many machines on one floor.</b> The belt only gets about one part per tick out of a floor. That's why ${stehen} spots at the front are standing still. Build one machine less or spread them across floors.`,
+        return {t:`<b>Too many machines on one floor.</b> The belt only gets about one part per tick out of a floor. That's why ${stehen} spots at the front are standing still. ${W2.name==="sohle"&&S.uhr?"In Sohle you can still move and remove machines, only new ones can no longer be added.":"Build one machine less or spread them across floors."}`,
           zeig:{art:"platz", f, i:F.slots.findIndex(m=>m&&(m.blockT||0)>40)},
           go:()=>{ switchView("turm"); const i=F.slots.findIndex(m=>m&&(m.blockT||0)>40); guide({tower:()=>[f,i]},"This machine can't get rid of its part because everything ahead of it is full. Behind it stand the machines closer to the exit."); }}; } }
   // 5. Schuhe stapeln sich, ein Laden fehlt
