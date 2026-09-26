@@ -224,7 +224,11 @@ const fakeLoad=(d,m)=>S.fakes.filter(f=>f.d===d&&f.m===m).reduce((a,f)=>a+f.str,
 const priceIn=(d,m)=>Math.max(4,Math.round(basePrice(d,m)/(1+fakeLoad(d,m)/6)));
 const sealedIn=(d,m)=>Math.max(4,Math.round(basePrice(d,m)*1.3));
 const sueCost=()=>150+S.sues*90;
-const evo=()=>1+Math.max(0,S.t-S.wakeT)/560+S.sold/1100+(S.uhr?(S.uhr.boutique.verkauft+(S.uhr.boutiquen||[]).reduce((a,B)=>a+(B.verkauft||0),0))/25:0);   // verkaufte Uhren zählen schwer
+// Wie stark die Banden sind. Vorher lief das fast nur über die Spielzeit: Wer nichts tat, bekam
+// trotzdem immer härtere Wellen, und wer viel verdiente, merkte davon nichts. Jetzt zählt vor allem,
+// was gerade an Geld durch die Stadt geht.
+const umsatzJetzt=()=>Math.round(S.uSchnitt||0);
+const evo=()=>1+Math.max(0,S.t-S.wakeT)/1600+umsatzJetzt()/3000+S.sold/2400;
 const routeCost=src=>Math.round(50+14*pathLen(pathOf(src)));
 const etagenPreis=n=>S.haus==='uhren'?[0,2500,6000,12000,20000,32000][n]:(S.uhr?undefined:FLOOR_COST[n]);   // Kapitel 2 baut teurer, Sohle ist danach fertig gebaut
 const fleetCost=()=>Math.round(250*Math.pow(1.35,S.fleet-2));   // war 1.6, der zehnte Platz kostete damit 6.711
@@ -266,6 +270,7 @@ const umsatzProMin=()=>Math.max(200,Math.round(S.earned/Math.max(2,S.t/60)));
 const grossPreis=()=>Math.max(5000,Math.round(umsatzProMin()*20/500)*500);
 const grossOffen=()=>!S.flagship&&(S.curRes||Object.keys(S.research||{}).length>0);
 const allResearched=()=>TECH.every(x=>RES()[x.k]);
+const alleRes2=()=>!!S.uhr&&TECH2.every(x=>RES2()[x.k]);
 const FW_FORSCHUNGEN=5;   // so viele Stufen braucht die Modewoche, die beiden teuersten darfst du auslassen
 const resFertig=()=>TECH.filter(x=>RES()[x.k]).length;
 const fwOffen=()=>resFertig()>=FW_FORSCHUNGEN;
@@ -283,8 +288,11 @@ function einlagern(W,it){ if(it.k.endsWith("_s")) W.fin[it.k]=(W.fin[it.k]||0)+1
   else if(it.k==="ausr") S.ammo=Math.min(S.ammoCap,S.ammo+10);
   else if(W.lager[it.k]!==undefined) W.lager[it.k]=Math.min(W.lagerCap,W.lager[it.k]+1);
   else if(W.teile.includes(it.k)) W.parts[it.k]=Math.min(W.lagerCap,(W.parts[it.k]||0)+1); }
+// Ist alles erforscht, nimmt ein Labor oder Atelier keine Stücke mehr an. Sie sollen verkauft werden.
+const sattVonForschung=m=>(m.t==="lab"&&allResearched())||(m.t==="atelier"&&alleRes2());
 // Was eine Maschine gerade braucht. "modell" heißt: steht beim gewählten Modell.
 const bedarfVon=(W,m)=>{ const M=W.mach[m.t]; if(!M) return {};   // Maschine gehört nicht in dieses Haus
+  if(sattVonForschung(m)) return {};                              // nimmt nichts mehr, auch nicht vom Band
   return M.need==="modell" ? ((W.models[m.model]||{}).need||{}) : M.need; };
 // "fertig" ist die Kategorie für fertige Stücke: Sneaker in Sohle, Uhren in Kapitel 2
 const katVon=(W,k)=>W.models[k]?"fertig":k;
@@ -315,7 +323,7 @@ function werkStep(W){
       if(m.out){ const x=F.lane[i]; if(!x){ F.lane[i]=m.out; m.out=null; } else if(takes(x)){ put(x); F.lane[i]=m.out; m.out=null; } }
       m.blockT = m.out ? (m.blockT||0)+1 : 0;
       if(!m.out&&!(m.cool>0)){ const x=F.lane[i]; if(x&&takes(x)){ put(x); F.lane[i]=null; } }
-      m.full = m.t==="equip" && S.ammo>=S.ammoCap-10;
+      m.full = (m.t==="equip" && S.ammo>=S.ammoCap-10) || sattVonForschung(m);
       if(!m.busy&&!m.out&&!m.full&&Object.keys(need).every(k=>(m.buf[k]||0)>=need[k])){ m.busy=true; m.p=0; m.cur=m.sm; for(const k in need) m.buf[k]-=need[k]; if((W.mach[m.t]||{}).kosten) S.money-=W.mach[m.t].kosten; }
       if(m.busy){ m.p++; m.last=S.t; const T=speedOf(W,m);
         if(m.t==="lab"&&m.p>=T){ addSample(m.cur); m.busy=false; m.p=0; m.made=(m.made||0)+1; continue; }
@@ -440,7 +448,7 @@ function cityStep(){
     if(d.cd<=0){ let best=null,bp=0,sealed=false;
       for(const m in MODELS){ if((S.fin[m+"_s"]||0)>0){ const p=sealedIn(d,m); if(p>bp){bp=p;best=m;sealed=true;} }
                               if(S.fin[m]>0){ const p=priceIn(d,m); if(p>bp){bp=p;best=m;sealed=false;} } }
-      if(best){ if(flag) bp=Math.round(bp*1.3); S.fin[sealed?best+"_s":best]--; stat('sold'); stat('sold_'+best); S.money+=bp; S.earned+=bp; S.sold++; d.s[best]+=1; d.heat[best]+=(sealed?0:1)*(flag?2:1);
+      if(best){ if(flag) bp=Math.round(bp*1.3); S.fin[sealed?best+"_s":best]--; stat('sold'); stat('sold_'+best); stat('umsatz',bp); S.money+=bp; S.earned+=bp; S.sold++; d.s[best]+=1; d.heat[best]+=(sealed?0:1)*(flag?2:1);
         pop(d,"+"+bp,"#1F7A55"); d.cd=flag?0.8:1.6;
         if(sealed){ const mine=S.fakes.filter(f=>f.d===d&&f.m===best); if(mine.length){ const w=mine.reduce((a,b)=>b.str>a.str?b:a); w.str-=(RES().holo?2.2:1.1)/(1+Math.max(0,fakeSkill()-1)*0.4); w.hit=S.t; } } }
       else d.cd=0.5;
@@ -648,6 +656,9 @@ function step(){
     // Lohn
     S.floors.forEach(F=>F.slots.forEach(m=>{ if(m&&m.t==="bench") S.money-=MACH.bench.wage*0.4/2; }));
   }
+  // Umsatz pro Minute, langsam nachgezogen. Daran hängt, wie stark die Banden werden.
+  // Ein einzelner guter Verkauf soll die Stadt nicht sofort aufschrecken, ein gutes Werk schon.
+  S.uSchnitt=(S.uSchnitt||0)+(perMin('umsatz')-(S.uSchnitt||0))*DT/60;
   cityStep(); fwStep(); lieferStep(); boutiqueStep(); meisterStep();
   // Meilensteine
   if(!S.factory && S.sold>=FACTORY_AT){ S.factory=true;
@@ -766,7 +777,7 @@ function boutiqueStep(){ const U=S.uhr; if(!U) return;
     const fd=B.d!==undefined&&S.districts[B.d]&&S.districts[B.d].flagship==='uhren';
     if(!best){ B.cd=1; continue; }
     if(fd) bp=Math.round(bp*1.25);
-    U.fin[zert?best+"_s":best]--; S.money+=bp; S.earned+=bp; B.verkauft=(B.verkauft||0)+1; B.umsatz=(B.umsatz||0)+bp;
+    U.fin[zert?best+"_s":best]--; stat('umsatz',bp); S.money+=bp; S.earned+=bp; B.verkauft=(B.verkauft||0)+1; B.umsatz=(B.umsatz||0)+bp;
     B.s[best]+=1; B.heat=B.heat||{}; B.heat[best]=(B.heat[best]||0)+(zert?0.3:1);
     stat('uhr_verkauft'); stat('uhr_'+best);
     const ort=B.d!==undefined?S.districts[B.d]:U.ort; if(ort) pop(ort,"+"+bp.toLocaleString("de-DE"),"#1F7A55");
@@ -825,6 +836,16 @@ const TECH2=[
 
 const RES2=()=>(S.uhr&&S.uhr.research)||{};
 const werferWeite=()=>RES2().weite?7.5:4.5;
+// Ein Netz vom Dach der Manufaktur auf ein Versteck
+function werferSchuss(nest){ if(!nest||!nest.alive||!RES2().werfer||!S.uhr||!S.uhr.ort) return false;
+  if(dist(nest,S.uhr.ort)>werferWeite()){ pop(nest,"zu weit weg","#7A7366"); return false; }
+  if(S.t<(S.werferCd||0)){ pop(nest,"Netzwerfer lädt","#7A7366"); return false; }
+  if(S.ammo<5){ pop(nest,"zu wenig Ausrüstung","#B8432F"); return false; }
+  S.werferCd=S.t+1.2; S.ammo-=5; stat("ammoUse",5); nest.hp-=12; nest.hitT=S.t;
+  S.shots.push({a:{x:S.uhr.ort.x,y:S.uhr.ort.y},b:{x:nest.x,y:nest.y},ttl:0.35,max:0.35});
+  if(nest.hp<=0){ nest.alive=false; S.cleared++; S.lastClear=S.t; const dd=S.districts[nest.district]; if(dd) delete dd.nest;
+    pop(nest,"AUSGEHOBEN","#1F7A55"); beuteZurueck(nest); }
+  return true; }
 const resTech2=()=>S.uhr&&S.uhr.curRes&&TECH2.find(x=>x.k===S.uhr.curRes);
 function resPct2(){ const T=resTech2(); if(!T) return 0; let a=0,b=0;
   for(const [k,v] of Object.entries(T.cost)){ a+=Math.min(v,(S.uhr.resProg||{})[k]||0); b+=v; } return Math.floor(a/b*100); }
@@ -872,7 +893,7 @@ function forschungSheet2(){ reopen=forschungSheet2; const U=S.uhr;
 // Eintrittskarte ist die Werkstatt für Einzelstücke, danach vier seltene Zutaten, dann mehrere Minuten Bangen.
 
 const MEISTER_TEILE={
- saphir:  {n:"Saphirglas",        d:"Der Glasofen schmilzt vierzig Scheiben Glas zu einer einzigen.",             braucht:{glas:40}},
+ saphir:  {n:"Saphirglas",        d:"Vierzig Scheiben Glas werden zu einer einzigen geschmolzen. Die Werkstatt sammelt sie aus dem Teilelager.", braucht:{glas:40}},
  werkE:   {n:"Tourbillon",        d:"Dreißig Uhrwerke gehen dabei drauf. Übrig bleibt eines, das alle anderen schlägt.", braucht:{uhrwerk:30}},
  stein:   {n:"Meteoritengestein", d:"Liegt am äußersten Kartenrand. Ein Wagen muss es holen.",                    expedition:true},
  band:    {n:"Das Armband",       d:"Näht der allererste Mitarbeiter aus dem Kinderzimmer.",                      mitarbeiter:true}};
@@ -894,6 +915,17 @@ const werkstattGrund=()=>!S.uhr||!RES2().tourbillon?"Erst mit dem Tourbillon aus
 // Der erste Mitarbeiter: Steht in Sohle noch eine Werkbank, näht er das Band umsonst. Sonst muss man ihn zurückholen.
 const mitarbeiterDa=()=>S.floors.some(F=>F.slots.some(m=>m&&m.t==="bench"));
 const mitarbeiterPreis=()=>Math.max(4000,Math.round(umsatzProMin()*8/100)*100);
+// Sein alter Platz in Sohle. Ist dort noch was frei, zeigt die Werkstatt hin statt zu erklären.
+function freierPlatz(W){ for(let f=0;f<W.floors.length;f++){ const i=W.floors[f].slots.findIndex(x=>!x); if(i>=0) return [f,i]; } return null; }
+const platzInSohle=()=>freierPlatz(sohleWerk());
+function zeigMitarbeiterPlatz(){ const p=platzInSohle(); if(!p) return; S.haus="sohle";
+  guide({tower:()=>p, opt:"[data-hb]", optT:`Hol ihn zurück. Danach näht er das Armband und arbeitet hier weiter.`, done:()=>mitarbeiterDa()},
+    "Hier ist noch Platz in Sohle. Tipp den Platz an, dann kommt dein erster Mitarbeiter zurück."); }
+// Die Werkstatt selbst steht in der Manufaktur, irgendwo, sie braucht kein Band
+function zeigWerkstattPlatz(){ if(!S.uhr||!werkstattKaufbar()) return; const p=freierPlatz(uhrWerk()); S.haus="uhren";
+  if(!p){ switchView("turm"); openSheet(`<h3>Kein Platz für die Werkstatt</h3><p>In der Manufaktur ist jeder Platz belegt. Bau eine Etage dazu, oder bau eine Maschine ab.</p>`); return; }
+  guide({tower:()=>p, opt:'[data-b="werkstatt"]', optT:"Nimm die Werkstatt für Einzelstücke. Sie steht für sich, nichts läuft über ihr Band.", done:()=>werkstattDa()},
+    "Hier ist Platz für die Werkstatt. Tipp den Platz an."); }
 
 function meisterStart(){ if(S.mw||!S.uhr||!RES2().tourbillon) return;
   S.mw={phase:"sammeln", teile:{}, t0:S.t, preis:grossPreis(), stufe:1};
@@ -906,12 +938,25 @@ function werkstattAusbauen(){ const M=S.mw; if(!M||M.stufe>=3) return; const c=r
   if(M.stufe===2) once("mwstufe2","Der Wagen steht",`<p>Der gepanzerte Wagen ist fertig. Jetzt kannst du die <b>Expedition</b> an den Kartenrand schicken und das Meteoritengestein holen.</p>`);
   if(M.stufe===3) once("mwstufe3","Die Montagebank steht",`<p>Die Werkstatt ist fertig. Sobald alle vier Zutaten da sind, kannst du den <b>Zusammenbau</b> starten.</p>`); }
 
-// Zutaten abgeben
+// Zutaten abgeben. Was aus Teilen entsteht, sammelt die Werkstatt selbst ein, Stück für Stück.
+// Vierzig Scheiben Glas passen in kein Teilelager, deshalb hebt die Werkstatt sie auf, nicht das Lager.
+const sammelStand=(M,k)=>{ const T=MEISTER_TEILE[k]; if(!T.braucht) return null;
+  return Object.entries(T.braucht).map(([t,v])=>({t, v, da:Math.min(v,(M.sammel||{})[t]||0)})); };
+const sammeltGerade=(M,k)=>!!(M.auftrag&&M.auftrag[k]);
+function meisterAuftrag(k){ const M=S.mw; if(!M||M.phase!=="sammeln"||M.teile[k]) return;
+  M.auftrag=M.auftrag||{}; if(M.auftrag[k]) delete M.auftrag[k]; else M.auftrag[k]=true; }
+function meisterSammeln(){ const M=S.mw, U=S.uhr; if(!M||!U||M.phase!=="sammeln"||!M.auftrag) return;
+  M.sammel=M.sammel||{}; M.sammelT=(M.sammelT||0)+DT; if(M.sammelT<1) return; M.sammelT=0;
+  for(const k of Object.keys(M.auftrag)){ if(M.teile[k]){ delete M.auftrag[k]; continue; }
+    const T=MEISTER_TEILE[k]; if(!T.braucht) continue; let fertig=true;
+    for(const t in T.braucht){ if((M.sammel[t]||0)>=T.braucht[t]) continue;
+      if((U.parts[t]||0)>0){ U.parts[t]--; M.sammel[t]=(M.sammel[t]||0)+1; }
+      if((M.sammel[t]||0)<T.braucht[t]) fertig=false; }
+    if(fertig){ M.teile[k]=true; delete M.auftrag[k]; pop(U.ort,T.n+" fertig","#1F7A55"); if(alleDa()) alleDaHinweis(); } } }
 function meisterGeben(k){ const M=S.mw; if(!M||M.phase!=="sammeln"||M.teile[k]) return;
-  const T=MEISTER_TEILE[k], U=S.uhr;
-  if(T.braucht){ for(const t in T.braucht){ if((U.parts[t]||0)<T.braucht[t]) return; }
-    for(const t in T.braucht) U.parts[t]-=T.braucht[t]; }
-  else if(T.mitarbeiter&&!mitarbeiterDa()){ const c=mitarbeiterPreis(); if(S.money<c) return; S.money-=c; M.zurueckgeholt=true; }
+  const T=MEISTER_TEILE[k];
+  if(T.braucht) return meisterAuftrag(k);
+  if(T.mitarbeiter&&!mitarbeiterDa()){ const c=mitarbeiterPreis(); if(S.money<c) return; S.money-=c; M.zurueckgeholt=true; }
   M.teile[k]=true; pop(S.uhr.ort,T.n+" bereit","#1F7A55"); if(alleDa()) alleDaHinweis();
 }
 const alleDa=()=>{ const M=S.mw; return !!M&&Object.keys(MEISTER_TEILE).every(x=>M.teile[x]); };
@@ -919,18 +964,34 @@ function alleDaHinweis(){ once("mwbereit","Alles da",`<p>Die vier Zutaten liegen
   <p>Er dauert <b>${MEISTER_BAUZEIT} Sekunden</b>, und so lange liegt die Uhr halbfertig da. Kommt in dieser Zeit eine Crew an die Manufaktur, ist alles weg: die Uhr und die Zutaten.</p>
   <p>Stell vorher Wachposten hin und heb die Verstecke in der Nähe aus.</p>`); }
 // Expedition an den Kartenrand. Ein einzelner Wagen, lange Strecke, und alle wissen, was er holt.
-const EXP_ZIEL={x:8.5,y:-3.8};
-function expeditionStart(){ const M=S.mw; if(!M||M.teile.stein||M.exp||mwStufe()<2) return;
-  M.exp={pos:{x:HQ.x,y:HQ.y}, d:0, weg:[{x:HQ.x,y:HQ.y},{x:HQ.x,y:ROADY[0]},{x:8.5,y:ROADY[0]},EXP_ZIEL], zurueck:false, hp:90, max:90};
-  once("exp","Die Expedition",`<p>Ein einzelner Wagen fährt quer durch die Stadt bis an den Rand und gräbt das Meteoritengestein aus.</p><p>Die Crews wissen, was er holt. Erwischen sie ihn, ist die Fahrt umsonst und du schickst ihn neu los.</p>`); }
+// Er gehört zur Manufaktur, startet dort und bringt das Gestein auch dorthin zurück.
+const EXP_ZIELE=[{x:0.5,y:-3.8},{x:8.5,y:-3.8}];
+const expZiel=()=>{ const o=S.uhr.ort; return EXP_ZIELE.slice().sort((a,b)=>dist(b,o)-dist(a,o))[0]; };
+const laengs=x=>ROADS_X.reduce((a,b)=>Math.abs(b-x)<Math.abs(a-x)?b:a);
+// Über der alten Stadt gibt es keine Querstraßen: erst auf einer Längsstraße herunter, unten quer, dann wieder hoch.
+function expeditionWeg(z){ const o=S.uhr.ort, ax=laengs(o.x), p=[{x:o.x,y:o.y}];
+  if(Math.abs(ax-o.x)>0.01) p.push({x:ax,y:o.y});
+  if(Math.abs(ax-z.x)>0.01) p.push({x:ax,y:ROADY[0]},{x:z.x,y:ROADY[0]});
+  p.push({x:z.x,y:z.y}); return p; }
+function expeditionStart(){ const M=S.mw; if(!M||M.teile.stein||M.exp||mwStufe()<2||!S.uhr) return;
+  const z=expZiel(), o=S.uhr.ort;
+  M.exp={pos:{x:o.x,y:o.y}, d:0, weg:expeditionWeg(z), ziel:z, zurueck:false, hp:90, max:90};
+  expeditionWelle();
+  once("exp","Die Expedition",`<p>Ein einzelner Wagen fährt aus der Manufaktur quer durch die Stadt bis an den Rand und gräbt das Meteoritengestein aus.</p><p>Die Crews wissen, was er holt, und schicken alles los, was sie haben. Erwischen sie ihn, ist die Fahrt umsonst und du schickst ihn neu los.</p>`); }
+// Beim Losfahren und beim Aufladen bricht aus jedem Versteck eine eigene Welle auf, zusätzlich zum normalen Takt
+function expeditionWelle(){ if(!S.awake) return 0; const e=evo(), leben=3*Math.sqrt(e)*3; let n=0;
+  for(const nest of S.nests){ if(!nest.alive) continue;
+    for(let q=0;q<1+Math.floor((e-1)*0.5);q++){ S.raiders.push({x:nest.x+(Math.random()-.5)*.6,y:nest.y+(Math.random()-.5)*.6,hp:leben,max:leben,cd:0,crew:true}); n++; } }
+  if(n){ S.alarmT=S.t; pop(S.uhr.ort,n+" Crews wollen den Stein","#B8432F"); }
+  return n; }
 function expeditionVerloren(){ const M=S.mw; if(!M||!M.exp) return;
   pop(M.exp.pos,"Expedition verloren","#B8432F"); M.exp=null; S.alarmT=S.t;
   once("expweg","Der Wagen ist weg",`<p>Sie haben die Expedition erwischt. Das Gestein ist verloren, der Wagen auch.</p><p>Du kannst sie neu losschicken. Diesmal besser mit Wachposten an der Strecke, oder mit Begleitschutz aus der Forschung.</p>`); }
 function expeditionStep(){ const M=S.mw; if(!M||!M.exp) return; const e=M.exp, L2=pathLen(e.weg);
-  if(!e.zurueck&&e.d>=L2&&!e.hat){ e.grab=(e.grab||0)+DT; if(e.grab<6) return; e.hat=true; e.zurueck=true; pop(e.pos,"Gestein geladen","#1F7A55"); }
+  if(!e.zurueck&&e.d>=L2&&!e.hat){ e.grab=(e.grab||0)+DT; if(e.grab<6) return; e.hat=true; e.zurueck=true; pop(e.pos,"Gestein geladen","#1F7A55"); expeditionWelle(); }
   e.d += (e.zurueck?-1:1)*1.1*DT;
   if(!e.zurueck&&e.d>L2) e.d=L2;
-  if(e.zurueck&&e.d<=0){ M.exp=null; M.teile.stein=true; pop(HQ,"Meteoritengestein da","#1F7A55"); if(alleDa()) alleDaHinweis(); return; }
+  if(e.zurueck&&e.d<=0){ M.exp=null; M.teile.stein=true; pop(S.uhr.ort,"Meteoritengestein da","#1F7A55"); if(alleDa()) alleDaHinweis(); return; }
   e.pos=pointAt(e.weg,Math.max(0,Math.min(L2,e.d)));
 }
 // Zusammenbau: drei Minuten Bangen
@@ -939,12 +1000,13 @@ function meisterBauen(){ const M=S.mw; if(!M||M.phase!=="sammeln"||!alleDa()||mw
     <p>Ein Überfall auf die Manufaktur in dieser Zeit kostet dich alles. Stell alles hin, was du hast.</p>`); }
 function meisterStep(){ const M=S.mw; if(!M) return;
   if(M.exp) expeditionStep();
+  meisterSammeln();
   if(M.phase!=="bau") return;
   if(S.t-M.bauT>=MEISTER_BAUZEIT){ M.phase="fertig"; meisterFertig(); }
 }
 // Ein Raub in der Bauzeit zerstört das Stück
 function meisterUeberfall(){ const M=S.mw; if(!M||M.phase!=="bau") return;
-  M.phase="sammeln"; M.teile={}; M.kaputt=(M.kaputt||0)+1;
+  M.phase="sammeln"; M.teile={}; M.sammel={}; M.auftrag={}; M.kaputt=(M.kaputt||0)+1;
   once("mwweg"+M.kaputt,"Sie haben sie mitgenommen",`<p>Während die Uhr halbfertig in der Werkstatt lag, ist eine Crew durchgekommen. Das Stück ist weg, die Zutaten auch.</p>
     <p>Du kannst von vorn anfangen. Diesmal mit mehr Wachleuten an der Manufaktur.</p>`); }
 function meisterFertig(){ paused=true; setPauseUI();
@@ -979,12 +1041,18 @@ function meisterSheet(){ reopen=meisterSheet; const M=S.mw;
   h+=`<p style="margin-top:10px">Vier Zutaten, jede ein eigener kleiner Auftrag.</p>`;
   for(const [k,T] of Object.entries(MEISTER_TEILE)){ const da=M.teile[k];
     let kann=false, hinweis="";
-    if(T.braucht){ kann=Object.entries(T.braucht).every(([t,v])=>(U.parts[t]||0)>=v);
-      hinweis=Object.entries(T.braucht).map(([t,v])=>`${U.parts[t]||0} von ${v} ${t==="glas"?"Glas":"Uhrwerke"}`).join(", "); }
+    if(T.braucht){ const st=sammelStand(M,k), laeuft=sammeltGerade(M,k); kann=true;
+      hinweis=st.map(x=>`${x.da} von ${x.v} ${x.t==="glas"?"Glas":"Uhrwerken"}`).join(", ")
+        +(laeuft?" · die Werkstatt sammelt gerade, tippen hält sie an"
+                :" · tippen, dann sammelt die Werkstatt jede Sekunde ein Stück aus dem Teilelager"); }
     else if(T.expedition){ kann=false; hinweis=M.exp?"Der Wagen ist unterwegs.":"Schick den Wagen los."; }
-    else if(T.mitarbeiter){ kann=mitarbeiterDa()||S.money>=mitarbeiterPreis();
-      hinweis=mitarbeiterDa()?"Er steht noch in deiner Werkstatt in Sohle.":`Du hast ihn abgebaut. Ihn zurückzuholen kostet ${mitarbeiterPreis().toLocaleString("de-DE")}.`; }
-    h+=`<div class="opt ${da?"off":""}" ${!da&&kann?`data-mt="${k}"`:""}><div><b>${T.n}${da?" · bereit":""}</b><span>${T.d}</span><span style="display:block;margin-top:3px">${da?"":hinweis}</span></div><em>${da?"✓":""}</em></div>`;
+    else if(T.mitarbeiter){ const platz=!mitarbeiterDa()&&platzInSohle();
+      kann=mitarbeiterDa()||!!platz||S.money>=mitarbeiterPreis();
+      hinweis=mitarbeiterDa()?"Er steht noch in deiner Werkstatt in Sohle. Tippen, dann näht er das Armband."
+        :platz?`Du hast ihn abgebaut. Tippen zeigt dir seinen alten Platz in Sohle, zurückholen kostet ${mitarbeiterPreis().toLocaleString("de-DE")}.`
+        :`Du hast ihn abgebaut und in Sohle ist kein Platz frei. Ihn zurückzuholen kostet ${mitarbeiterPreis().toLocaleString("de-DE")}.`; }
+    const em=da?"✓":T.braucht&&sammeltGerade(M,k)?"sammelt":"";
+    h+=`<div class="opt ${da?"off":""}" ${!da&&kann?`data-mt="${k}"`:""}><div><b>${T.n}${da?" · bereit":""}</b><span>${T.d}</span><span style="display:block;margin-top:3px">${da?"":hinweis}</span></div><em>${em}</em></div>`;
     if(k==="stein"&&!da&&!M.exp) h+= st>=2
       ? `<div class="opt" data-exp="1"><div><b>Expedition losschicken</b><span>Ein Wagen fährt an den Stadtrand und zurück. Die Crews wissen, was er holt.</span></div><em></em></div>`
       : `<div class="opt off"><div><b>Expedition losschicken</b><span>Dafür fehlt der gepanzerte Wagen. Bau die Werkstatt eine Stufe aus.</span></div><em></em></div>`;
@@ -994,7 +1062,10 @@ function meisterSheet(){ reopen=meisterSheet; const M=S.mw;
     : `<div class="opt off"><div><b>Zusammenbau starten</b><span>Dafür fehlt die Montagebank. Bau die Werkstatt fertig aus.</span></div><em></em></div>`;
   openSheet(h,()=>{ const ab=document.querySelector("[data-aus]"); if(ab) ab.onclick=()=>{ werkstattAusbauen(); meisterSheet(); };
     const bb=document.querySelector("[data-bau]"); if(bb) bb.onclick=()=>{ meisterBauen(); meisterSheet(); };
-    document.querySelectorAll("[data-mt]").forEach(b=>b.onclick=()=>{ meisterGeben(b.dataset.mt); meisterSheet(); });
+    document.querySelectorAll("[data-mt]").forEach(b=>b.onclick=()=>{ const k=b.dataset.mt;
+      // Der Mitarbeiter ist der einzige Teil, der nicht in der Manufaktur liegt: dann hin statt erklären
+      if(k==="band"&&!mitarbeiterDa()&&platzInSohle()){ $("sheet").innerHTML=""; zeigMitarbeiterPlatz(); return; }
+      meisterGeben(k); meisterSheet(); });
     const e=document.querySelector("[data-exp]"); if(e) e.onclick=()=>{ expeditionStart(); meisterSheet(); }; });
 }
 </script>
@@ -1070,7 +1141,17 @@ function exitOffer(){ const v=valuation(); S.offer=v; paused=true; setPauseUI();
 function regionCard(){ const el=$("region"); if(!el||!el.dataset) return; let h;
   const zst=zoneState(); if((zst==="locked"||zst==="wait")&&!S.exited){ if(el.dataset.h!==""){ el.dataset.h=""; el.innerHTML=""; } el.onclick=null; return; }
   if(S.exited&&!S.uhr) h=`<div class="rg ready"><b>Kapitel 2 · Grundstück wählen</b><span>Drei Lagen, drei Preise. Tippen zum Ansehen.</span></div>`;
-  else if(S.exited) h=`<div class="rg"><b>Kapitel 2 · ${S.uhr.ort.n}</b><span>Deine Uhrenmanufaktur. Oben im Turm umschalten.</span></div>`;
+  else if(S.exited){
+    // Der Hinweis auf den Umschalter stand hier für immer. Jetzt steht hier nur noch, was gerade dran ist.
+    const M=S.mw;
+    if(M&&M.phase==="bau"){ const rest=Math.ceil(MEISTER_BAUZEIT-(S.t-M.bauT));
+      h=`<div class="rg live"><b>Das Meisterstück · noch ${rest} Sekunden</b><span>Die Uhr liegt halbfertig in der Werkstatt. Halt die Crews von der Manufaktur weg.</span></div>`; }
+    else if(M&&M.phase==="sammeln"){ const da=Object.keys(MEISTER_TEILE).filter(k=>M.teile[k]).length;
+      h=`<div class="rg live"><b>Das Meisterstück · ${da} von 4 Zutaten</b><span>Werkstatt Stufe ${mwStufe()} von 3. Tippen zum Ansehen.</span></div>`; }
+    else if(!M&&RES2().tourbillon&&werkstattKaufbar())
+      h=`<div class="rg ready"><b>Werkstatt für Einzelstücke</b><span>Das Tourbillon ist erforscht. Tippen zeigt, wo sie hinkommt.</span></div>`;
+    else h="";
+  }
   else if(S.fw&&S.fw.state==="live"){ const left=Math.max(0,FW_TIME-(S.t-S.fw.t0)), mm=Math.floor(left/60), ss=String(Math.floor(left%60)).padStart(2,"0");
     h=`<div class="rg live"><b>Fashion Week · noch ${mm}:${ss}</b><div class="fwb">${Object.keys(FW_NEED).map(m=>`<div>${shoeIcon(m,18)} ${S.fw.got[m]}/${FW_NEED[m]}<i><u style="width:${Math.round(S.fw.got[m]/FW_NEED[m]*100)}%;background:${MODELS[m].c2}"></u></i></div>`).join("")}</div></div>`; }
   else if(S.fw&&S.fw.state==="won") h=`<div class="rg ready"><b>Angebot der Investorin</b><span>${S.offer.toLocaleString("de-DE")} · Tippen zum Ansehen</span></div>`;
@@ -1079,7 +1160,10 @@ function regionCard(){ const el=$("region"); if(!el||!el.dataset) return; let h;
   else { const n=TECH.filter(x=>RES()[x.k]).length;
     h=`<div class="rg"><b>${lockSvgG()}Gesperrtes Gebiet</b><span>Erforsche alles (${n} von ${TECH.length}), dann kommt die Fashion Week. Wer sie liefert, bekommt ein Angebot für seine Firma und das nächste Gebiet.</span></div>`; }
   if(el.dataset.h!==h){ el.dataset.h=h; el.innerHTML=h; }
-  el.onclick=()=>{ if(S.exited&&!S.uhr) return grundstueckSheet(); if(S.fw&&S.fw.state==="won"&&!S.exited) exitOffer(); else if(!S.exited&&fwOffen()&&(!S.fw||(S.fw.state!=="live"&&S.t>=(S.fw.retry||0)))) fwStart(); }; }
+  el.onclick=()=>{ if(S.exited&&!S.uhr) return grundstueckSheet();
+    if(S.exited&&S.uhr){ if(S.mw) return meisterSheet();
+      if(RES2().tourbillon&&werkstattKaufbar()) return zeigWerkstattPlatz(); return; }
+    if(S.fw&&S.fw.state==="won"&&!S.exited) exitOffer(); else if(!S.exited&&fwOffen()&&(!S.fw||(S.fw.state!=="live"&&S.t>=(S.fw.retry||0)))) fwStart(); }; }
 const lockSvgG=()=>`<svg width="11" height="13" viewBox="0 0 11 13" style="vertical-align:-1px;margin-right:6px"><rect x="1" y="6" width="9" height="7" rx="1.5" fill="currentColor"/><path d="M3 6V4a2.5 2.5 0 0 1 5 0v2" stroke="currentColor" stroke-width="1.6" fill="none"/></svg>`;
 
 function zoneState(){ if(S.exited) return "open"; if(S.fw&&S.fw.state==="live") return "live"; if(S.fw&&S.fw.state==="won") return "offer";
@@ -1316,6 +1400,14 @@ function openSlot(f,i){ const W=aktivesWerk(); if(!W||!W.floors[f]) return;   //
     const A=W.floors[a.f].slots,B=W.floors[f].slots,t=B[i]; B[i]=A[a.i]; A[a.i]=t; return; }
   const m=W.floors[f].slots[i];
   if(!m){
+    // Eine Ausnahme: Für das Armband des Meisterstücks kommt der erste Mitarbeiter auf seinen alten Platz zurück.
+    if(W.name==="sohle"&&S.uhr&&S.mw&&S.mw.phase==="sammeln"&&!S.mw.teile.band&&!mitarbeiterDa()){
+      const c=mitarbeiterPreis(), ok=S.money>=c;
+      openSheet(`<h3>Der erste Mitarbeiter</h3><p>Hier hat er angefangen, im Kinderzimmer. Für das Armband deines Meisterstücks kommt er zurück. Danach näht er hier weiter wie früher.</p>
+        <div class="opt ${ok?"":"off"}" ${ok?'data-hb="1"':""}><div style="display:flex;gap:10px;align-items:center">${machIcon("bench")}<div><b>Ihn zurückholen</b><span>Eine Werkbank auf diesem Platz. Danach gibst du das Armband in der Werkstatt ab.</span></div></div><em>${c}</em></div>`,
+        ()=>{ const b=document.querySelector("[data-hb]"); if(b) b.onclick=()=>{ S.money-=c; S.mw.zurueckgeholt=true;
+          W.floors[f].slots[i]={t:"bench",buf:{},busy:false,p:0,model:"runner",lvl:0,born:S.t}; $("sheet").innerHTML=""; }; });
+      return; }
     if(W.name==="sohle"&&S.uhr){ openSheet(`<h3>Sohle ist fertig gebaut</h3><p>Seit dem Einstieg der Investorin baust du hier nichts Neues mehr. Was steht, läuft weiter: reparieren, Modelle umstellen, Maschinen verschieben und der Regler für die Lederbänder.</p><p>Neue Maschinen und Etagen gibt es oben in der Manufaktur.</p>`); return; }
     let h=`<h3>${f===0&&!S.factory?"Kinderzimmer":f+1+". Etage"}, Platz ${i+1}</h3><p>Die Ware läuft hier ${dirOf(f)===1?"nach rechts":"nach links"}.</p>`;
     for(const [k,M] of Object.entries(W.mach)){
@@ -1338,6 +1430,7 @@ function openSlot(f,i){ const W=aktivesWerk(); if(!W||!W.floors[f]) return;   //
   const bufTxt=Object.entries(m.buf||{}).filter(([k,v])=>v>0).map(([k,v])=>v+" "+(W.models[k]?W.models[k].n:teilName(k,v))).join(", ");
   let h=`<h3>${M.n}</h3><p>${M.d}</p>`;
   if(m.out) h+=`<p style="color:var(--bad);font-weight:700;margin-top:-4px">Kommt nicht los: Das fertige Teil kann nicht aufs Band, davor ist alles voll.</p>`;
+  else if(sattVonForschung(m)) h+=`<p style="color:var(--money);font-weight:700;margin-top:-4px">Alles erforscht. ${m.t==="lab"?"Das Labor nimmt keine Schuhe mehr an, sie gehen jetzt in den Verkauf.":"Das Atelier nimmt keine Uhren mehr an, sie gehen jetzt in den Verkauf."}</p>`;
   else if(m.full) h+=`<p style="color:var(--ammo);font-weight:700;margin-top:-4px">Pausiert, das Ausrüstungslager ist voll.</p>`;
   else if(fehlt.length&&!m.busy) h+=`<p style="color:var(--bad);font-weight:700;margin-top:-4px">Es fehlt: ${fehlt.map(k=>(nd[k]>1?nd[k]+" ":"")+teilName(k,nd[k])).join(", ")}</p>`;
   h+=`<p style="margin-top:-6px">Hergestellt: <b>${m.made||0}</b>${bufTxt?" · im Puffer: "+bufTxt:" · Puffer leer"}${m.prio?" · hat Vorrang":""}</p>`;
@@ -1438,14 +1531,6 @@ function cityTap(x,y){
       ()=>{ const b=document.querySelector("[data-go]"); if(b) b.onclick=()=>{ S.money-=c; S.sues++; S.fakes=S.fakes.filter(g=>g!==fk); pop(fk,"ABGEMAHNT","#1F7A55"); $("sheet").innerHTML=""; }; });
     return; }
   const nest=S.nests.find(n=>n.alive&&dist(n,{x,y})<0.8);
-  // Netzwerfer auf dem Dach der Manufaktur: Netz im Bogen auf ein Versteck in Reichweite
-  if(nest&&RES2().werfer&&S.uhr.ort&&dist(nest,S.uhr.ort)<=werferWeite()&&!S.squads.some(q=>S.nests[q.nest]===nest)){
-    if(S.t<(S.werferCd||0)){ pop(nest,"Netzwerfer lädt","#7A7366"); return; }
-    if(S.ammo<5){ pop(nest,"zu wenig Ausrüstung","#B8432F"); return; }
-    S.werferCd=S.t+1.2; S.ammo-=5; stat("ammoUse",5); nest.hp-=12; nest.hitT=S.t;
-    S.shots.push({a:{x:S.uhr.ort.x,y:S.uhr.ort.y},b:{x:nest.x,y:nest.y},ttl:0.35,max:0.35});
-    if(nest.hp<=0){ nest.alive=false; S.cleared++; S.lastClear=S.t; const dd=S.districts[nest.district]; if(dd) delete dd.nest; pop(nest,"AUSGEHOBEN","#1F7A55"); beuteZurueck(nest); }
-    return; }
   if(nest){ const laeuft=S.squads.filter(q=>S.nests[q.nest]===nest&&!q.back);
     if(laeuft.length){   // Während der Razzia hilfst du selbst: Netz aus dem Turm auf das Versteck
       if(S.t<(S.handCd||0)){ pop(nest,"Netz lädt nach","#7A7366"); return; }
@@ -1455,9 +1540,14 @@ function cityTap(x,y){
       return; }
     const avail=S.posts.filter(p=>!p.away&&p.hp>0), mitAus=avail.filter(p=>p.stock>=10).length, str=avail.length*10+mitAus*4;
     const cost=200+S.razzias*100, ok=avail.length>0&&S.money>=cost;
+    // Der Netzwerfer ist eine Zeile im Fenster. Vorher fing er jeden Tipp ab, und die Razzia war nicht mehr erreichbar.
+    const werfer=RES2().werfer&&S.uhr&&S.uhr.ort&&dist(nest,S.uhr.ort)<=werferWeite();
+    const wGrund=!werfer?"":S.ammo<5?"Zu wenig Ausrüstung, 5 werden gebraucht.":S.t<(S.werferCd||0)?"Er lädt noch.":"";
+    const wZeile=werfer?`<div class="opt ${wGrund?"off":""}" ${wGrund?"":'data-wf="1"'}><div><b>Netz vom Dach werfen</b><span>${wGrund||"12 Schaden von oben, ohne einen Posten abzuziehen. Mehrmals tippen."}</span></div><em>5 Ausrüstung</em></div>`:"";
     openSheet(`<h3>Versteck</h3>${beuteText(nest)?`<p style="color:var(--money);font-weight:700">Hier liegt deine Beute: ${beuteText(nest)}. Eine Razzia holt sie zurück.</p>`:""}<p>Verteidigung ${Math.round(nest.hp)}. Du kannst die Wachleute von ${avail.length} Posten abziehen, Stärke etwa ${str}. <b>${mitAus} Posten haben genug Ausrüstung dabei</b>, ihre Leute halten mehr aus und schlagen härter zu. <b>Solange sie weg sind, stehen die Posten leer.</b> Reicht es nicht, verlierst du sie. Gewinnst du, gehört das Viertel dir und du kannst dort einen Laden eröffnen.</p>
-      <div class="opt ${ok?"":"off"}" ${ok?'data-go="1"':""}><div><b>Razzia mit allen verfügbaren Wachleuten</b><span>${avail.length?"":"Erst Wachposten bauen."}</span></div><em>${cost}</em></div>`,
-      ()=>{ const b=document.querySelector("[data-go]"); if(b) b.onclick=()=>{ S.money-=cost; S.razzias++; S.razziaT=S.t; const ni=S.nests.indexOf(nest);
+      ${wZeile}<div class="opt ${ok?"":"off"}" ${ok?'data-go="1"':""}><div><b>Razzia mit allen verfügbaren Wachleuten</b><span>${avail.length?"":"Erst Wachposten bauen."}</span></div><em>${cost}</em></div>`,
+      ()=>{ const w=document.querySelector("[data-wf]"); if(w) w.onclick=()=>{ werferSchuss(nest); if(nest.alive) cityTap(x,y); else $("sheet").innerHTML=""; };
+        const b=document.querySelector("[data-go]"); if(b) b.onclick=()=>{ S.money-=cost; S.razzias++; S.razziaT=S.t; const ni=S.nests.indexOf(nest);
         avail.forEach(po=>{ po.away=true; const eq=po.stock>=10; if(eq) po.stock-=10;   // Ausrüstung kommt mit
           S.squads.push({x:po.x,y:po.y,home:{x:po.x,y:po.y},post:po,nest:ni,hp:eq?14:10,eq}); }); $("sheet").innerHTML=""; }; });
     return; }
@@ -2023,7 +2113,7 @@ function drawCity(){
     if(v.cargo){ c.fillStyle="#8A5A35"; for(let q=0;q<Math.min(3,v.cargo);q++) c.fillRect(x-T*0.18+q*T*0.12,y-T*0.1,T*0.08,T*0.1);
       c.fillStyle="#1B1A17"; c.font=`800 ${T*0.15}px ${F}`; c.textAlign="center"; c.fillText(v.cargo+" Bänder",x,y-T*0.24); } }
   // Die Expedition zum Meteoritengestein
-  if(S.mw&&S.mw.exp){ const e=S.mw.exp, x=X(e.pos.x), y=X(e.pos.y), zx=X(EXP_ZIEL.x), zy=X(EXP_ZIEL.y);
+  if(S.mw&&S.mw.exp){ const e=S.mw.exp, z=e.ziel||EXP_ZIELE[1], x=X(e.pos.x), y=X(e.pos.y), zx=X(z.x), zy=X(z.y);
     if(!e.hat){ c.strokeStyle="rgba(123,91,192,.7)"; c.lineWidth=2; c.setLineDash([5,4]); c.beginPath(); c.arc(zx,zy,T*0.3,0,7); c.stroke(); c.setLineDash([]);
       c.fillStyle="#7B5BC0"; c.font=`800 ${T*0.16}px ${F}`; c.textAlign="center"; c.fillText("Meteorit",zx,zy-T*0.4); }
     c.fillStyle="rgba(0,0,0,.3)"; c.fillRect(x-T*0.24+3,y-T*0.15+4,T*0.48,T*0.3);
