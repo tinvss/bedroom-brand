@@ -298,6 +298,7 @@ const bedarfVon=(W,m)=>{ const M=W.mach[m.t]; if(!M) return {};   // Maschine ge
 const katVon=(W,k)=>W.models[k]?"fertig":k;
 // Die erste Maschine auf Etage f, die dieses Teil verarbeiten kann (Rohstoffe mit Ziel weiter oben: keine)
 function verarbeiter(W,x,f){ const c=katVon(W,x.k); if(x.to&&x.to.f>f) return null;
+  if(meisterVorrang(W,c)) return null;   // sammelt die Werkstatt das gerade, fährt es aufs Durchgangsband
   return W.floors[f].slots.find(m=>m&&bedarfVon(W,m)[c])||null; }
 const PASS_WARTET=2;   // so lange hat das Arbeitsband Vorrang, dann ist das Durchgangsband dran
 // Ein Werk ist eine Fabrik: Etagen, Aufzüge, Annahmen, eigenes Lager, eigene Maschinen und Modelle.
@@ -318,7 +319,7 @@ function werkStep(W){
       const cat=k=>katVon(W,k);
       const mine=x=> !x.to || (x.to.f===f&&x.to.i===i) || x.to.f<f || (x.to.f===f && (d===1 ? i>x.to.i : i<x.to.i));
       const cap=(W.mach[m.t]||{}).puffer||2;   // Eingangspuffer: Material für die nächste Runde darf schon warten
-      const takes=x=>need[cat(x.k)] && (m.buf[cat(x.k)]||0)<need[cat(x.k)]*cap && mine(x);
+      const takes=x=>need[cat(x.k)] && (m.buf[cat(x.k)]||0)<need[cat(x.k)]*cap && mine(x) && !meisterVorrang(W,cat(x.k));
       const put=x=>{ const c=cat(x.k); m.buf[c]=(m.buf[c]||0)+1; if(c==="fertig") m.sm=x.k; };
       if(m.out){ const x=F.lane[i]; if(!x){ F.lane[i]=m.out; m.out=null; } else if(takes(x)){ put(x); F.lane[i]=m.out; m.out=null; } }
       m.blockT = m.out ? (m.blockT||0)+1 : 0;
@@ -379,6 +380,7 @@ function werkStep(W){
   W.floors.forEach((F,ff)=>F.slots.forEach((m,ii)=>{ if(!m) return; const to={f:ff,i:ii}, list=[], nd=bedarfVon(W,m)||{};
     // Was diese Maschine braucht: Rohstoffe aus dem Lager, übrige Zwischenteile aus dem Teilelager
     for(const k in nd){ if(k==="fertig") continue;
+      if(meisterVorrang(W,k)) continue;   // was die Werkstatt sammelt, wird nicht mehr ausgeliefert
       if(W.lager[k]!==undefined){ if(!(m.t==="equip"&&m.full)) list.push(k); }
       else if(W.parts[k]>0 && (m.buf[k]||0)<nd[k]) list.push(k); }   // Bänder braucht in Sohle niemand, sie warten auf den Lieferwagen
     const b=buckets[home(ff)]; if(!b) return;
@@ -943,6 +945,13 @@ function werkstattAusbauen(){ const M=S.mw; if(!M||M.stufe>=3) return; const c=r
 const sammelStand=(M,k)=>{ const T=MEISTER_TEILE[k]; if(!T.braucht) return null;
   return Object.entries(T.braucht).map(([t,v])=>({t, v, da:Math.min(v,(M.sammel||{})[t]||0)})); };
 const sammeltGerade=(M,k)=>!!(M.auftrag&&M.auftrag[k]);
+// Ein laufender Auftrag hat Vorrang. Ohne das ging kein einziges Uhrwerk in die Werkstatt:
+// die Endmontage nimmt jedes vom Band, gemessen 0 von 30 in zehn Minuten, auch mit drei Feinmechaniken.
+function meisterVorrang(W,k){ const M=S.mw;
+  if(!M||!W||W.name!=="uhren"||M.phase!=="sammeln"||!M.auftrag) return false;
+  for(const t in M.auftrag){ if(M.teile[t]) continue; const T=MEISTER_TEILE[t]; if(!T||!T.braucht) continue;
+    if(T.braucht[k]!==undefined&&((M.sammel||{})[k]||0)<T.braucht[k]) return true; }
+  return false; }
 function meisterAuftrag(k){ const M=S.mw; if(!M||M.phase!=="sammeln"||M.teile[k]) return;
   M.auftrag=M.auftrag||{}; if(M.auftrag[k]) delete M.auftrag[k]; else M.auftrag[k]=true; }
 function meisterSammeln(){ const M=S.mw, U=S.uhr; if(!M||!U||M.phase!=="sammeln"||!M.auftrag) return;
@@ -1043,8 +1052,8 @@ function meisterSheet(){ reopen=meisterSheet; const M=S.mw;
     let kann=false, hinweis="";
     if(T.braucht){ const st=sammelStand(M,k), laeuft=sammeltGerade(M,k); kann=true;
       hinweis=st.map(x=>`${x.da} of ${x.v} ${x.t==="glas"?"glass":"movements"}`).join(", ")
-        +(laeuft?" · the workshop is collecting, tap to stop it"
-                :" · tap, and the workshop takes one piece a second out of the parts store"); }
+        +(laeuft?" · the workshop is collecting and has priority, final assembly gets none of it. Tap to stop it."
+                :" · tap, and the workshop takes one piece a second, ahead of every machine"); }
     else if(T.expedition){ kann=false; hinweis=M.exp?"The van is on its way.":"Send the van out."; }
     else if(T.mitarbeiter){ const platz=!mitarbeiterDa()&&platzInSohle();
       kann=mitarbeiterDa()||!!platz||S.money>=mitarbeiterPreis();
@@ -1429,10 +1438,12 @@ function openSlot(f,i){ const W=aktivesWerk(); if(!W||!W.floors[f]) return;   //
   const teilName=(k,n)=>(TEILE[k]||[k,k])[n===1?0:1];
   const bufTxt=Object.entries(m.buf||{}).filter(([k,v])=>v>0).map(([k,v])=>v+" "+(W.models[k]?W.models[k].n:teilName(k,v))).join(", ");
   let h=`<h3>${M.n}</h3><p>${M.d}</p>`;
+  // Kein verschachteltes Backtick weiter unten: der Textextraktor für die englische Fassung bricht daran ab
+  const vorrangSatz = fehlt.some(k=>meisterVorrang(W,k)) ? "<br>The order in your workshop is collecting that and has priority. Stop it if this machine should keep building." : "";
   if(m.out) h+=`<p style="color:var(--bad);font-weight:700;margin-top:-4px">Stuck: the finished part can't get on the belt, everything ahead is full.</p>`;
   else if(sattVonForschung(m)) h+=`<p style="color:var(--money);font-weight:700;margin-top:-4px">Everything researched. ${m.t==="lab"?"The lab takes no more shoes, they go to the shops now.":"The atelier takes no more watches, they go to the boutiques now."}</p>`;
   else if(m.full) h+=`<p style="color:var(--ammo);font-weight:700;margin-top:-4px">Paused, the gear store is full.</p>`;
-  else if(fehlt.length&&!m.busy) h+=`<p style="color:var(--bad);font-weight:700;margin-top:-4px">Missing: ${fehlt.map(k=>(nd[k]>1?nd[k]+" ":"")+teilName(k,nd[k])).join(", ")}</p>`;
+  else if(fehlt.length&&!m.busy) h+=`<p style="color:var(--bad);font-weight:700;margin-top:-4px">Missing: ${fehlt.map(k=>(nd[k]>1?nd[k]+" ":"")+teilName(k,nd[k])).join(", ")}${vorrangSatz}</p>`;
   h+=`<p style="margin-top:-6px">Made: <b>${m.made||0}</b>${bufTxt?" · in buffer: "+bufTxt:" · buffer empty"}${m.prio?" · has priority":""}</p>`;
   if(M.t&&M.t.length>1){ const nx=(m.lvl||0)+1, c=(M.up||[0,60,300])[nx];
     if(nx<M.t.length){ const ok=S.money>=c; h+=`<div class="opt ${ok?"":"off"}" ${ok?'data-tr="1"':""}><div><b>${m.t==="bench"?"Train":"Upgrade"}</b><span>Then needs ${M.t[nx]} ticks per piece instead of ${M.t[m.lvl||0]}.</span></div><em>${c}</em></div>`; }
