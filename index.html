@@ -873,22 +873,26 @@ const TECH2=[
  {k:"begleit", n:"Begleitschutz",           d:"A guard rides along in the delivery van and fights off most raids.",                    cost:{klassik:12}},
  {k:"serien",  n:"Seriennummern",           d:"Replicas fade twice as fast, certificates hit harder.",                           cost:{klassik:16}},
  {k:"alarm",   n:"Alarmanlage",             d:"The alarm goes off in your boutiques. Half the thieves get caught.",             cost:{klassik:12,chrono:6}},
- {k:"werfer",  n:"Net launcher on the roof", d:"Slings a heavy net onto a hideout in range. One hit tears half the hut down, then it reloads for 25 seconds. Every shot costs 25 gear.", cost:{klassik:20,chrono:10}},
+ {k:"werfer",  n:"Net launcher on the roof", d:"Slings a heavy net onto a hideout in range. Two throws clear any hideout. Every throw costs 40 gear, then it reloads for 30 seconds.", cost:{klassik:20,chrono:10}},
  {k:"weite",   n:"Longer range",       d:"Der Netzwerfer wirft deutlich weiter.",                                                        cost:{chrono:18}},
  {k:"tourbillon", n:"Tourbillon",           d:"The finest movement there is. Opens the workshop for one-off pieces and with it the order for your masterpiece.", cost:{klassik:24,chrono:12}}];
 
 const RES2=()=>(S.uhr&&S.uhr.research)||{};
 const werferWeite=()=>RES2().weite?7.5:4.5;
 // Ein Netz vom Dach der Manufaktur auf ein Versteck
-const WERFER_SCHADEN=70, WERFER_KOSTEN=25, WERFER_LADEN=25;   // ein schwerer Schuss statt vieler kleiner
+// Zwei Würfe räumen jedes Versteck, egal wie zäh es ist. Eine feste Schadenszahl kann das nicht:
+// Verstecke wachsen mit dem Umsatz mit, bei 228 Verteidigung waren 70 Schaden noch fünf Würfe.
+// Deshalb zwei Drittel der vollen Hütte pro Wurf, mindestens 70.
+const WERFER_ANTEIL=0.65, WERFER_MIN=70, WERFER_KOSTEN=40, WERFER_LADEN=30;
+const werferSchaden=nest=>Math.max(WERFER_MIN,Math.round((nest.max||40)*WERFER_ANTEIL));
 function werferSchuss(nest){ if(!nest||!nest.alive||!RES2().werfer||!S.uhr||!S.uhr.ort) return false;
   if(dist(nest,S.uhr.ort)>werferWeite()){ pop(nest,"too far away","#7A7366"); return false; }
   if(S.t<(S.werferCd||0)){ pop(nest,"net launcher reloading","#7A7366"); return false; }
   if(S.ammo<WERFER_KOSTEN){ pop(nest,"not enough gear","#B8432F"); return false; }
   S.werferCd=S.t+WERFER_LADEN; S.ammo-=WERFER_KOSTEN; stat("ammoUse",WERFER_KOSTEN);
-  nest.hp-=WERFER_SCHADEN; nest.hitT=S.t; nest.wucht=S.t;   // Einschlag: die Hütte wackelt, Splitter fliegen
+  nest.hp-=werferSchaden(nest); nest.hitT=S.t; nest.wucht=S.t;   // Einschlag: die Hütte wackelt, Splitter fliegen
   S.werferT=S.t; S.shots.push({a:{x:S.uhr.ort.x,y:S.uhr.ort.y},b:{x:nest.x,y:nest.y},ttl:0.8,max:0.8,wucht:true});
-  for(const r of S.raiders) if(dist(r,nest)<1){ r.hp-=12; r.hitT=S.t; }   // wer daneben steht, bekommt es ab
+  for(const r of S.raiders) if(dist(r,nest)<1.2){ r.hp-=20; r.hitT=S.t; }   // wer daneben steht, bekommt es ab
   pop(nest,"TREFFER","#7B5BC0");
   if(nest.hp<=0){ nest.alive=false; S.cleared++; S.lastClear=S.t; const dd=S.districts[nest.district]; if(dd) delete dd.nest;
     pop(nest,"AUSGEHOBEN","#1F7A55"); beuteZurueck(nest); }
@@ -903,8 +907,8 @@ function checkRes2(){ const T=resTech2(); if(!T) return;
     if(T.k==="tourbillon") once("tourb","Das Tourbillon",`<p>You can now build the finest movement in the world. Not in series, that doesn't work. Only once.</p>
       <p>For that, place a <b>workshop for one-off pieces</b> in the manufactory. The order you've been working towards all along is waiting there.</p>`);
     else if(T.k==="werfer") once("werfer","Net launcher on the roof",`<p>There is now a <b>net launcher</b> on the roof of your manufactory. The circle on the map shows how far it reaches.</p>
-      <p>Tap a hideout inside that circle and throw. One hit tears half the hut down, three or four clear it, without pulling a single guard.</p>
-      <p>In return it is slow and expensive: <b>25 gear</b> per shot and <b>25 seconds</b> to reload. A raid is faster but costs you people. Take your pick.</p>`);
+      <p>Tap a hideout inside that circle and throw. One throw tears two thirds of the hut down, <b>two throws clear it</b>, without pulling a single guard. Whoever stands next to it goes into the net as well.</p>
+      <p>In return it is slow and expensive: <b>40 gear</b> per throw and <b>30 seconds</b> to reload. A raid is faster but costs you people. Take your pick.</p>`);
     else hint("res2_"+T.k,[{id:"r2"+T.k, el:()=>$("tForsch"), info:true, t:`Erforscht: ${T.n}. ${T.d}`}],true); } }
 // Ein Muster aus dem Atelier
 function uhrMuster(modell){ const U=S.uhr; if(!U) return; const T=resTech2();
@@ -1601,7 +1605,7 @@ function cityTap(x,y){
     const werfer=RES2().werfer&&S.uhr&&S.uhr.ort&&dist(nest,S.uhr.ort)<=werferWeite();
     const wGrund=!werfer?"":S.ammo<WERFER_KOSTEN?`Not enough gear, ${WERFER_KOSTEN} are needed.`
       :S.t<(S.werferCd||0)?`Still reloading, ${Math.ceil(S.werferCd-S.t)} seconds.`:"";
-    const wText=wGrund||`${WERFER_SCHADEN} damage in one throw, without pulling a guard. Then ${WERFER_LADEN} seconds to reload.`;
+    const wText=wGrund||`${werferSchaden(nest)} damage in one throw, without pulling a guard. Two throws clear the hut, with ${WERFER_LADEN} seconds of reloading in between.`;
     const wZeile=werfer?`<div class="opt ${wGrund?"off":""}" ${wGrund?"":'data-wf="1"'}><div><b>Throw a net from the roof</b><span>${wText}</span></div><em>${WERFER_KOSTEN} gear</em></div>`:"";
     openSheet(`<h3>Hideout</h3>${beuteText(nest)?`<p style="color:var(--money);font-weight:700">Your loot is here: ${beuteText(nest)}. A raid gets it back.</p>`:""}<p>Defence ${Math.round(nest.hp)}. You can pull the guards from ${avail.length} posts, strength about ${str}. <b>${mitAus} posts have enough gear with them</b>, their people take more punishment and hit harder. <b>While they're away, those posts stand empty.</b> If it isn't enough, you lose them. If you win, the district is yours and you can open a shop there.</p>
       ${wZeile}<div class="opt ${ok?"":"off"}" ${ok?'data-go="1"':""}><div><b>Raid with every available guard</b><span>${avail.length?"":"Build guard posts first."}</span></div><em>${cost}</em></div>`,

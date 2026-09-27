@@ -873,22 +873,26 @@ const TECH2=[
  {k:"begleit", n:"Begleitschutz",           d:"Ein Wachmann fährt im Lieferwagen mit und wehrt die meisten Überfälle ab.",                    cost:{klassik:12}},
  {k:"serien",  n:"Seriennummern",           d:"Replikas verlieren doppelt so schnell, Zertifikate wirken stärker.",                           cost:{klassik:16}},
  {k:"alarm",   n:"Alarmanlage",             d:"In den Boutiquen geht der Alarm los. Die Hälfte der Diebe wird dabei geschnappt.",             cost:{klassik:12,chrono:6}},
- {k:"werfer",  n:"Netzwerfer auf dem Dach", d:"Schleudert ein schweres Netz auf ein Versteck in Reichweite. Ein Treffer reißt die halbe Hütte ein, danach lädt er 25 Sekunden. Jeder Schuss kostet 25 Ausrüstung.", cost:{klassik:20,chrono:10}},
+ {k:"werfer",  n:"Netzwerfer auf dem Dach", d:"Schleudert ein schweres Netz auf ein Versteck in Reichweite. Zwei Würfe räumen jedes Versteck. Jeder Wurf kostet 40 Ausrüstung, danach lädt er 30 Sekunden.", cost:{klassik:20,chrono:10}},
  {k:"weite",   n:"Größere Wurfweite",       d:"Der Netzwerfer wirft deutlich weiter.",                                                        cost:{chrono:18}},
  {k:"tourbillon", n:"Tourbillon",           d:"Das feinste Uhrwerk, das es gibt. Öffnet die Werkstatt für Einzelstücke und damit den Auftrag für dein Meisterstück.", cost:{klassik:24,chrono:12}}];
 
 const RES2=()=>(S.uhr&&S.uhr.research)||{};
 const werferWeite=()=>RES2().weite?7.5:4.5;
 // Ein Netz vom Dach der Manufaktur auf ein Versteck
-const WERFER_SCHADEN=70, WERFER_KOSTEN=25, WERFER_LADEN=25;   // ein schwerer Schuss statt vieler kleiner
+// Zwei Würfe räumen jedes Versteck, egal wie zäh es ist. Eine feste Schadenszahl kann das nicht:
+// Verstecke wachsen mit dem Umsatz mit, bei 228 Verteidigung waren 70 Schaden noch fünf Würfe.
+// Deshalb zwei Drittel der vollen Hütte pro Wurf, mindestens 70.
+const WERFER_ANTEIL=0.65, WERFER_MIN=70, WERFER_KOSTEN=40, WERFER_LADEN=30;
+const werferSchaden=nest=>Math.max(WERFER_MIN,Math.round((nest.max||40)*WERFER_ANTEIL));
 function werferSchuss(nest){ if(!nest||!nest.alive||!RES2().werfer||!S.uhr||!S.uhr.ort) return false;
   if(dist(nest,S.uhr.ort)>werferWeite()){ pop(nest,"zu weit weg","#7A7366"); return false; }
   if(S.t<(S.werferCd||0)){ pop(nest,"Netzwerfer lädt","#7A7366"); return false; }
   if(S.ammo<WERFER_KOSTEN){ pop(nest,"zu wenig Ausrüstung","#B8432F"); return false; }
   S.werferCd=S.t+WERFER_LADEN; S.ammo-=WERFER_KOSTEN; stat("ammoUse",WERFER_KOSTEN);
-  nest.hp-=WERFER_SCHADEN; nest.hitT=S.t; nest.wucht=S.t;   // Einschlag: die Hütte wackelt, Splitter fliegen
+  nest.hp-=werferSchaden(nest); nest.hitT=S.t; nest.wucht=S.t;   // Einschlag: die Hütte wackelt, Splitter fliegen
   S.werferT=S.t; S.shots.push({a:{x:S.uhr.ort.x,y:S.uhr.ort.y},b:{x:nest.x,y:nest.y},ttl:0.8,max:0.8,wucht:true});
-  for(const r of S.raiders) if(dist(r,nest)<1){ r.hp-=12; r.hitT=S.t; }   // wer daneben steht, bekommt es ab
+  for(const r of S.raiders) if(dist(r,nest)<1.2){ r.hp-=20; r.hitT=S.t; }   // wer daneben steht, bekommt es ab
   pop(nest,"TREFFER","#7B5BC0");
   if(nest.hp<=0){ nest.alive=false; S.cleared++; S.lastClear=S.t; const dd=S.districts[nest.district]; if(dd) delete dd.nest;
     pop(nest,"AUSGEHOBEN","#1F7A55"); beuteZurueck(nest); }
@@ -903,8 +907,8 @@ function checkRes2(){ const T=resTech2(); if(!T) return;
     if(T.k==="tourbillon") once("tourb","Das Tourbillon",`<p>Du kannst jetzt das feinste Uhrwerk der Welt bauen. Nicht in Serie, das geht nicht. Nur einmal.</p>
       <p>Stell dafür in der Manufaktur eine <b>Werkstatt für Einzelstücke</b> hin. Dort wartet der Auftrag, auf den du die ganze Zeit hingearbeitet hast.</p>`);
     else if(T.k==="werfer") once("werfer","Netzwerfer auf dem Dach",`<p>Auf dem Dach deiner Manufaktur steht jetzt ein <b>Netzwerfer</b>. Der Kreis auf der Karte zeigt, wie weit er reicht.</p>
-      <p>Tipp ein Versteck in diesem Kreis an und wirf. Ein Treffer reißt die halbe Hütte ein, drei bis vier räumen sie ab, ohne dass du einen einzigen Wachposten abziehst.</p>
-      <p>Dafür ist er langsam und teuer: <b>25 Ausrüstung</b> pro Schuss und <b>25 Sekunden</b> Nachladen. Eine Razzia geht schneller, kostet aber Leute. Such dir aus, was dir lieber ist.</p>`);
+      <p>Tipp ein Versteck in diesem Kreis an und wirf. Ein Wurf reißt zwei Drittel der Hütte ein, <b>zwei Würfe räumen sie ab</b>, ohne dass du einen einzigen Wachposten abziehst. Wer danebensteht, geht mit ins Netz.</p>
+      <p>Dafür ist er langsam und teuer: <b>40 Ausrüstung</b> pro Wurf und <b>30 Sekunden</b> Nachladen. Eine Razzia geht schneller, kostet aber Leute. Such dir aus, was dir lieber ist.</p>`);
     else hint("res2_"+T.k,[{id:"r2"+T.k, el:()=>$("tForsch"), info:true, t:`Erforscht: ${T.n}. ${T.d}`}],true); } }
 // Ein Muster aus dem Atelier
 function uhrMuster(modell){ const U=S.uhr; if(!U) return; const T=resTech2();
@@ -1601,7 +1605,7 @@ function cityTap(x,y){
     const werfer=RES2().werfer&&S.uhr&&S.uhr.ort&&dist(nest,S.uhr.ort)<=werferWeite();
     const wGrund=!werfer?"":S.ammo<WERFER_KOSTEN?`Zu wenig Ausrüstung, ${WERFER_KOSTEN} werden gebraucht.`
       :S.t<(S.werferCd||0)?`Er lädt noch, ${Math.ceil(S.werferCd-S.t)} Sekunden.`:"";
-    const wText=wGrund||`${WERFER_SCHADEN} Schaden auf einen Schlag, ohne einen Posten abzuziehen. Danach ${WERFER_LADEN} Sekunden Nachladen.`;
+    const wText=wGrund||`${werferSchaden(nest)} Schaden auf einen Schlag, ohne einen Posten abzuziehen. Zwei Würfe räumen die Hütte, dazwischen ${WERFER_LADEN} Sekunden Nachladen.`;
     const wZeile=werfer?`<div class="opt ${wGrund?"off":""}" ${wGrund?"":'data-wf="1"'}><div><b>Netz vom Dach werfen</b><span>${wText}</span></div><em>${WERFER_KOSTEN} Ausrüstung</em></div>`:"";
     openSheet(`<h3>Versteck</h3>${beuteText(nest)?`<p style="color:var(--money);font-weight:700">Hier liegt deine Beute: ${beuteText(nest)}. Eine Razzia holt sie zurück.</p>`:""}<p>Verteidigung ${Math.round(nest.hp)}. Du kannst die Wachleute von ${avail.length} Posten abziehen, Stärke etwa ${str}. <b>${mitAus} Posten haben genug Ausrüstung dabei</b>, ihre Leute halten mehr aus und schlagen härter zu. <b>Solange sie weg sind, stehen die Posten leer.</b> Reicht es nicht, verlierst du sie. Gewinnst du, gehört das Viertel dir und du kannst dort einen Laden eröffnen.</p>
       ${wZeile}<div class="opt ${ok?"":"off"}" ${ok?'data-go="1"':""}><div><b>Razzia mit allen verfügbaren Wachleuten</b><span>${avail.length?"":"Erst Wachposten bauen."}</span></div><em>${cost}</em></div>`,
