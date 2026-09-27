@@ -179,6 +179,11 @@ const FW_NEED={runner:30,court:20,hightop:10}, FW_TIME=300;
 // Spielstand S und neues Spiel
 /* ================= Zustand ================= */
 let S, view="turm", paused=false;
+// Zeichenuhr: Spielzeit plus der angefangene Rechenschritt, läuft also mit jedem Bild weiter.
+// S.t springt in Schritten von 0,1 Sekunden, der Turm sogar nur alle 0,4 Sekunden, und genau
+// das sah man als Ruckeln. Alles, was sich nur bewegt, hängt jetzt an animT.
+let animT=0;
+const TURM_TAKT=0.4;
 function newGame(){
   S={t:0, statStart:0, money:60, ammo:0, sold:0, earned:0, factory:false,
      lager:{leder:10,gummi:10,metall:0}, lagerCap:40, fin:{runner:0,court:0,hightop:0},
@@ -427,6 +432,9 @@ function werkStep(W){
 <script>
 // Simulation in der Stadt: Transporter, Läden, Banden, Wachen, Razzia, Fälscher
 /* ================= Stadt ================= */
+// Wohin eine Bande zieht: erst in leere Viertel, dann auch neben deine Läden. Zuhause bleibt tabu.
+const viertelFrei=()=>S.districts.filter(d=>d.nest===undefined&&d.n!=="Zuhause")
+  .sort((a,b)=>(a.shop?1:0)-(b.shop?1:0)||dist(b,HQ)-dist(a,HQ));
 // Plätze, auf denen neue Vorkommen auftauchen können
 const SRC_SPOTS=[{x:2.5,y:4.2},{x:6.6,y:4.0},{x:1.5,y:8.4},{x:7.6,y:8.8},{x:3.4,y:9.4},{x:5.6,y:6.0},{x:2.2,y:7.0},{x:6.4,y:11.4},{x:1.2,y:3.0},{x:8.2,y:6.6}];
 function cityStep(){
@@ -463,7 +471,13 @@ function cityStep(){
       S.sources.push({x:p.x,y:p.y,k:ns.k,left:1500,max:1500,trucks:0});
       pop(p,"Neue "+(ns.k==="leder"?"Tannery":ns.k==="gummi"?"Rubber plant":ns.k==="sand"?"Sand pit":"Metal yard")+" entdeckt","#1F7A55"); } }
   // Läden verkaufen aus dem Fertiglager
-  for(const d of S.districts){ if(!d.shop) continue; const flag=d.flagship==="sohle";
+  for(const d of S.districts){ if(!d.shop) continue;
+    // Sitzt eine Bande im Viertel, kassiert sie. Der Laden verkauft nichts, bis das Versteck weg ist.
+    if(d.nest!==undefined&&S.nests[d.nest]&&S.nests[d.nest].alive){ d.cd=2;
+      once("kassiert","They are shaking down your shop",`<p>A gang has moved in right next to your shop in ${d.n}. <b>While they are there, it sells nothing.</b></p>
+        <p>Clear the hideout and it runs again: with a raid, or with the net launcher on the roof of the manufactory.</p>`);
+      continue; }
+    const flag=d.flagship==="sohle";
     d.cd-=DT; for(const m in d.s) d.s[m]*=Math.pow(0.9,DT);
     if(d.cd<=0){ let best=null,bp=0,sealed=false;
       for(const m in MODELS){ if((S.fin[m+"_s"]||0)>0){ const p=sealedIn(d,m); if(p>bp){bp=p;best=m;sealed=true;} }
@@ -499,10 +513,12 @@ function cityStep(){
       // Verstecke wehren sich: Posten in ihrer Nähe werden sofort angegriffen
       for(const po of S.posts){ if(dist(po,n)<1.4) po.hp-=1.5*DT; }
     }
-    // Unbehelligte Verstecke gründen neue
+    // Unbehelligte Verstecke gründen neue. Leere Viertel zuerst, danach auch Viertel mit Laden:
+    // sonst hört die Stadt auf zu leben, sobald überall ein Laden steht. Gemessen waren das
+    // in zwanzig Minuten 0 neue Verstecke und 0 Diebe.
     if(!S.pend && S.t-S.lastExpand>240 && S.nests.filter(n=>n.alive).length<4){
       S.lastExpand=S.t;
-      const free=S.districts.filter(d=>!d.shop&&d.nest===undefined&&d.n!=="Zuhause").sort((a,b)=>dist(b,HQ)-dist(a,HQ));
+      const free=viertelFrei();
       const d=free[0], alive=S.nests.filter(n=>n.alive);
       if(d&&alive.length){ const src=alive.sort((a,b)=>dist(a,d)-dist(b,d))[0];
         S.pend={di:S.districts.indexOf(d), src:S.nests.indexOf(src), t0:S.t};
@@ -515,7 +531,7 @@ function cityStep(){
     }
     // Sind fast alle Verstecke weg, zieht nach einer Weile eine neue Bande in die Stadt
     if(!S.pend && S.nests.filter(n=>n.alive).length<2 && S.t-(S.lastClear||0)>150){
-      const free=S.districts.filter(d=>!d.shop&&d.nest===undefined&&d.n!=="Zuhause").sort((a,b)=>dist(b,HQ)-dist(a,HQ));
+      const free=viertelFrei();
       if(free.length){ S.pend={di:S.districts.indexOf(free[0]), src:-1, t0:S.t}; pop(free[0],"Neue Bande zieht ein","#B8432F"); } }
     if(S.pend){ const P=S.pend, d=S.districts[P.di], srcN=P.src>=0?S.nests[P.src]:{alive:true};
       if(!srcN||!srcN.alive){ pop(d,"Bau abgebrochen","#1F7A55"); S.pend=null; }
@@ -672,10 +688,12 @@ function cityStep(){
 // Ein Rechenschritt des ganzen Spiels (alle 0,1 Sekunden)
 /* ================= Hauptschritt ================= */
 let towerTick=0;
+// Wie weit der laufende Turmtakt schon ist, 0 bis 1. Damit zeichnen wir zwischen zwei Takten.
+const taktPhase=()=>Math.max(0,Math.min(1,towerTick/TURM_TAKT));
 function step(){
   if(paused||!S) return;
   S.t+=DT;
-  towerTick+=DT; if(towerTick>=0.4){ towerTick=0; towerStep(); if(S.uhr) werkStep(uhrWerk());   // Kapitel 2 läuft daneben
+  towerTick+=DT; if(towerTick>=TURM_TAKT){ towerTick=0; towerStep(); if(S.uhr) werkStep(uhrWerk());   // Kapitel 2 läuft daneben
     // Lohn
     S.floors.forEach(F=>F.slots.forEach(m=>{ if(m&&m.t==="bench") S.money-=MACH.bench.wage*0.4/2; }));
   }
@@ -797,7 +815,9 @@ function boutiqueStep(){ const U=S.uhr; if(!U) return;
     let best=null, bp=0, zert=false;
     for(const m in UHREN){ if((U.fin[m+"_s"]||0)>0){ const p=Math.round(uhrPreisIn(B,m)*1.35); if(p>bp){bp=p;best=m;zert=true;} }
       if(U.fin[m]>0){ const p=uhrPreisIn(B,m); if(p>bp){bp=p;best=m;zert=false;} } }
-    const fd=B.d!==undefined&&S.districts[B.d]&&S.districts[B.d].flagship==='uhren';
+    const bd=B.d!==undefined?S.districts[B.d]:null;
+    if(bd&&bd.nest!==undefined&&S.nests[bd.nest]&&S.nests[bd.nest].alive){ B.cd=2; continue; }   // Bande im Viertel: die Boutique bleibt zu
+    const fd=bd&&bd.flagship==='uhren';
     if(!best){ B.cd=1; continue; }
     if(fd) bp=Math.round(bp*1.25);
     U.fin[zert?best+"_s":best]--; stat('umsatz',bp); S.money+=bp; S.earned+=bp; B.verkauft=(B.verkauft||0)+1; B.umsatz=(B.umsatz||0)+bp;
@@ -853,19 +873,23 @@ const TECH2=[
  {k:"begleit", n:"Begleitschutz",           d:"A guard rides along in the delivery van and fights off most raids.",                    cost:{klassik:12}},
  {k:"serien",  n:"Seriennummern",           d:"Replicas fade twice as fast, certificates hit harder.",                           cost:{klassik:16}},
  {k:"alarm",   n:"Alarmanlage",             d:"The alarm goes off in your boutiques. Half the thieves get caught.",             cost:{klassik:12,chrono:6}},
- {k:"werfer",  n:"Net launcher on the roof", d:"Lobs nets at hideouts in range. Tap a hideout. Every shot costs 5 gear.", cost:{klassik:20,chrono:10}},
+ {k:"werfer",  n:"Net launcher on the roof", d:"Slings a heavy net onto a hideout in range. One hit tears half the hut down, then it reloads for 25 seconds. Every shot costs 25 gear.", cost:{klassik:20,chrono:10}},
  {k:"weite",   n:"Longer range",       d:"Der Netzwerfer wirft deutlich weiter.",                                                        cost:{chrono:18}},
  {k:"tourbillon", n:"Tourbillon",           d:"The finest movement there is. Opens the workshop for one-off pieces and with it the order for your masterpiece.", cost:{klassik:24,chrono:12}}];
 
 const RES2=()=>(S.uhr&&S.uhr.research)||{};
 const werferWeite=()=>RES2().weite?7.5:4.5;
 // Ein Netz vom Dach der Manufaktur auf ein Versteck
+const WERFER_SCHADEN=70, WERFER_KOSTEN=25, WERFER_LADEN=25;   // ein schwerer Schuss statt vieler kleiner
 function werferSchuss(nest){ if(!nest||!nest.alive||!RES2().werfer||!S.uhr||!S.uhr.ort) return false;
   if(dist(nest,S.uhr.ort)>werferWeite()){ pop(nest,"too far away","#7A7366"); return false; }
   if(S.t<(S.werferCd||0)){ pop(nest,"net launcher reloading","#7A7366"); return false; }
-  if(S.ammo<5){ pop(nest,"not enough gear","#B8432F"); return false; }
-  S.werferCd=S.t+1.2; S.ammo-=5; stat("ammoUse",5); nest.hp-=12; nest.hitT=S.t;
-  S.shots.push({a:{x:S.uhr.ort.x,y:S.uhr.ort.y},b:{x:nest.x,y:nest.y},ttl:0.35,max:0.35});
+  if(S.ammo<WERFER_KOSTEN){ pop(nest,"not enough gear","#B8432F"); return false; }
+  S.werferCd=S.t+WERFER_LADEN; S.ammo-=WERFER_KOSTEN; stat("ammoUse",WERFER_KOSTEN);
+  nest.hp-=WERFER_SCHADEN; nest.hitT=S.t; nest.wucht=S.t;   // Einschlag: die Hütte wackelt, Splitter fliegen
+  S.werferT=S.t; S.shots.push({a:{x:S.uhr.ort.x,y:S.uhr.ort.y},b:{x:nest.x,y:nest.y},ttl:0.8,max:0.8,wucht:true});
+  for(const r of S.raiders) if(dist(r,nest)<1){ r.hp-=12; r.hitT=S.t; }   // wer daneben steht, bekommt es ab
+  pop(nest,"TREFFER","#7B5BC0");
   if(nest.hp<=0){ nest.alive=false; S.cleared++; S.lastClear=S.t; const dd=S.districts[nest.district]; if(dd) delete dd.nest;
     pop(nest,"AUSGEHOBEN","#1F7A55"); beuteZurueck(nest); }
   return true; }
@@ -878,8 +902,9 @@ function checkRes2(){ const T=resTech2(); if(!T) return;
     pop(S.uhr.ort,"Erforscht: "+T.n,"#7B5BC0");
     if(T.k==="tourbillon") once("tourb","Das Tourbillon",`<p>You can now build the finest movement in the world. Not in series, that doesn't work. Only once.</p>
       <p>For that, place a <b>workshop for one-off pieces</b> in the manufactory. The order you've been working towards all along is waiting there.</p>`);
-    else if(T.k==="werfer") once("werfer","Net launcher on the roof",`<p>There's a <b>net launcher</b> on the roof of your manufactory now. The circle on the map shows how far it throws.</p>
-      <p>Tap a hideout inside that circle and a net flies there in an arc. A few hits and the shack is gone, without pulling a single guard off a post. Every shot costs <b>5 gear</b> from your store.</p>`);
+    else if(T.k==="werfer") once("werfer","Net launcher on the roof",`<p>There is now a <b>net launcher</b> on the roof of your manufactory. The circle on the map shows how far it reaches.</p>
+      <p>Tap a hideout inside that circle and throw. One hit tears half the hut down, three or four clear it, without pulling a single guard.</p>
+      <p>In return it is slow and expensive: <b>25 gear</b> per shot and <b>25 seconds</b> to reload. A raid is faster but costs you people. Take your pick.</p>`);
     else hint("res2_"+T.k,[{id:"r2"+T.k, el:()=>$("tForsch"), info:true, t:`Erforscht: ${T.n}. ${T.d}`}],true); } }
 // Ein Muster aus dem Atelier
 function uhrMuster(modell){ const U=S.uhr; if(!U) return; const T=resTech2();
@@ -1574,8 +1599,10 @@ function cityTap(x,y){
     const cost=200+S.razzias*100, ok=avail.length>0&&S.money>=cost;
     // Der Netzwerfer ist eine Zeile im Fenster. Vorher fing er jeden Tipp ab, und die Razzia war nicht mehr erreichbar.
     const werfer=RES2().werfer&&S.uhr&&S.uhr.ort&&dist(nest,S.uhr.ort)<=werferWeite();
-    const wGrund=!werfer?"":S.ammo<5?"Not enough gear, 5 are needed.":S.t<(S.werferCd||0)?"Still reloading.":"";
-    const wZeile=werfer?`<div class="opt ${wGrund?"off":""}" ${wGrund?"":'data-wf="1"'}><div><b>Throw a net from the roof</b><span>${wGrund||"12 damage from above, without pulling a single guard. Tap again and again."}</span></div><em>5 gear</em></div>`:"";
+    const wGrund=!werfer?"":S.ammo<WERFER_KOSTEN?`Not enough gear, ${WERFER_KOSTEN} are needed.`
+      :S.t<(S.werferCd||0)?`Still reloading, ${Math.ceil(S.werferCd-S.t)} seconds.`:"";
+    const wText=wGrund||`${WERFER_SCHADEN} damage in one throw, without pulling a guard. Then ${WERFER_LADEN} seconds to reload.`;
+    const wZeile=werfer?`<div class="opt ${wGrund?"off":""}" ${wGrund?"":'data-wf="1"'}><div><b>Throw a net from the roof</b><span>${wText}</span></div><em>${WERFER_KOSTEN} gear</em></div>`:"";
     openSheet(`<h3>Hideout</h3>${beuteText(nest)?`<p style="color:var(--money);font-weight:700">Your loot is here: ${beuteText(nest)}. A raid gets it back.</p>`:""}<p>Defence ${Math.round(nest.hp)}. You can pull the guards from ${avail.length} posts, strength about ${str}. <b>${mitAus} posts have enough gear with them</b>, their people take more punishment and hit harder. <b>While they're away, those posts stand empty.</b> If it isn't enough, you lose them. If you win, the district is yours and you can open a shop there.</p>
       ${wZeile}<div class="opt ${ok?"":"off"}" ${ok?'data-go="1"':""}><div><b>Raid with every available guard</b><span>${avail.length?"":"Build guard posts first."}</span></div><em>${cost}</em></div>`,
       ()=>{ const w=document.querySelector("[data-wf]"); if(w) w.onclick=()=>{ werferSchuss(nest); if(nest.alive) cityTap(x,y); else $("sheet").innerHTML=""; };
@@ -1764,8 +1791,17 @@ const machIcon=k=>{ const col=MACH2[k]?"#7B5BC0":k==="equip"?"#C98A1B":k==="seal
   return `<svg viewBox="-12 -12 24 24" width="30" height="30" style="flex:none;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:3px"><g stroke="${col}" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round">${ICON[k]}</g></svg>`; };
 
 // Markierung um eine klemmende Stelle. Sie pulsiert, damit man sie auch beim Bauen sieht.
-function melderRing(c,r){ if(!r) return; const p=1+Math.sin(S.t*4)*0.06, w=r.w*p, h=r.h*p, x=r.x-(w-r.w)/2, y=r.y-(h-r.h)/2;
-  c.save(); c.strokeStyle="#D6452E"; c.lineWidth=3.5; c.setLineDash([9,6]); c.lineDashOffset=-S.t*14;
+// Ein Stück Ware gleitet in genau einem Turmtakt von Platz zu Platz. Vorher zog es mit einer
+// Feder nach: erst stand es kurz, dann rutschte es. Das war das Ruckeln, das man gesehen hat.
+function gleite(it,tx,ty,dt){
+  if(it.dx===undefined||Math.abs(it.dy-ty)>20){ it.dx=tx; it.dy=ty; it.zx=tx; it.zt=TURM_TAKT; }
+  if(it.zx!==tx){ it.vx=it.dx; it.zx=tx; it.zt=0; }
+  it.zt=Math.min(TURM_TAKT,(it.zt||0)+dt);
+  it.dx = it.vx===undefined ? tx : it.vx+(tx-it.vx)*(it.zt/TURM_TAKT);
+  it.dy=ty;
+}
+function melderRing(c,r){ if(!r) return; const p=1+Math.sin(animT*4)*0.06, w=r.w*p, h=r.h*p, x=r.x-(w-r.w)/2, y=r.y-(h-r.h)/2;
+  c.save(); c.strokeStyle="#D6452E"; c.lineWidth=3.5; c.setLineDash([9,6]); c.lineDashOffset=-animT*14;
   c.beginPath(); c.roundRect(x-4,y-4,w+8,h+8,10); c.stroke();
   c.setLineDash([]); c.strokeStyle="rgba(214,69,46,.25)"; c.lineWidth=9; c.stroke(); c.restore(); }
 /* ---------- Turm auf Leinwand ---------- */
@@ -1806,37 +1842,37 @@ function cItem(c,k,x,y){
 }
 function cIcon(c,t,x,y,col,busy){
   c.save(); c.translate(x,y); c.strokeStyle=col; c.fillStyle=col; c.lineWidth=2; c.lineCap="round"; c.lineJoin="round";
-  const rot=busy?S.t*4:0;
-  if(t==="cut"){ c.rotate(busy?Math.sin(S.t*10)*0.25:0); c.beginPath(); c.moveTo(-7,-6); c.lineTo(7,6); c.moveTo(-7,6); c.lineTo(7,-6); c.stroke();
+  const rot=busy?animT*4:0;
+  if(t==="cut"){ c.rotate(busy?Math.sin(animT*10)*0.25:0); c.beginPath(); c.moveTo(-7,-6); c.lineTo(7,6); c.moveTo(-7,6); c.lineTo(7,-6); c.stroke();
     c.beginPath(); c.arc(-8,-7,3,0,7); c.arc(-8,7,3,0,7); c.stroke(); }
-  else if(t==="press"){ const d=busy?Math.abs(Math.sin(S.t*6))*4:0; c.strokeRect(-8,-10+d,16,6); c.beginPath(); c.moveTo(0,-4+d); c.lineTo(0,2); c.stroke(); c.strokeRect(-9,3,18,5); }
+  else if(t==="press"){ const d=busy?Math.abs(Math.sin(animT*6))*4:0; c.strokeRect(-8,-10+d,16,6); c.beginPath(); c.moveTo(0,-4+d); c.lineTo(0,2); c.stroke(); c.strokeRect(-9,3,18,5); }
   else if(t==="equip"){ c.beginPath(); c.arc(0,0,8,0,7); c.stroke(); c.lineWidth=1.3;
     for(let k=-1;k<=1;k++){ c.beginPath(); c.moveTo(-7,k*4); c.lineTo(7,k*4); c.moveTo(k*4,-7); c.lineTo(k*4,7); c.stroke(); }
-    if(busy){ c.rotate(Math.sin(S.t*6)*0.2); } }
+    if(busy){ c.rotate(Math.sin(animT*6)*0.2); } }
   else if(t==="asm"){ c.rotate(rot); c.beginPath(); c.arc(0,0,7,0,7); c.stroke();
     for(let k=0;k<6;k++){ c.save(); c.rotate(k*Math.PI/3); c.fillRect(-1.5,-10,3,3.5); c.restore(); } c.beginPath(); c.arc(0,0,2.4,0,7); c.fill(); }
   else if(t==="lab"){ c.beginPath(); c.moveTo(-3,-9); c.lineTo(3,-9); c.moveTo(-2,-9); c.lineTo(-2,-3); c.lineTo(-8,8); c.lineTo(8,8); c.lineTo(2,-3); c.lineTo(2,-9); c.stroke();
-    if(busy){ c.beginPath(); c.arc(-2+Math.sin(S.t*6)*2,3-((S.t*3)%1)*6,1.6,0,7); c.fill(); } }
+    if(busy){ c.beginPath(); c.arc(-2+Math.sin(animT*6)*2,3-((animT*3)%1)*6,1.6,0,7); c.fill(); } }
   // Kapitel 2
   else if(t==="giess"){ c.beginPath(); c.moveTo(-8,-6); c.lineTo(8,-6); c.lineTo(5,0); c.lineTo(-5,0); c.closePath(); c.stroke();
-    const g=busy?Math.abs(Math.sin(S.t*4))*3:0; c.beginPath(); c.moveTo(0,0); c.lineTo(0,4+g); c.stroke();
+    const g=busy?Math.abs(Math.sin(animT*4))*3:0; c.beginPath(); c.moveTo(0,0); c.lineTo(0,4+g); c.stroke();
     c.strokeRect(-6,5+g,12,5); }
   else if(t==="ofen"){ c.beginPath(); c.arc(0,1,7,0,7); c.stroke();
-    if(busy){ c.fillStyle="#E4572E"; c.beginPath(); c.arc(0,1,3+Math.sin(S.t*8)*1.2,0,7); c.fill(); c.fillStyle=col; }
+    if(busy){ c.fillStyle="#E4572E"; c.beginPath(); c.arc(0,1,3+Math.sin(animT*8)*1.2,0,7); c.fill(); c.fillStyle=col; }
     c.beginPath(); c.moveTo(-4,-7); c.lineTo(-2,-4); c.moveTo(4,-7); c.lineTo(2,-4); c.stroke(); }
-  else if(t==="fein"){ c.rotate(busy?S.t*2:0); c.beginPath(); c.arc(0,0,4.5,0,7); c.stroke();
+  else if(t==="fein"){ c.rotate(busy?animT*2:0); c.beginPath(); c.arc(0,0,4.5,0,7); c.stroke();
     for(let q=0;q<8;q++){ const a=q*Math.PI/4; c.beginPath(); c.moveTo(Math.cos(a)*4.5,Math.sin(a)*4.5); c.lineTo(Math.cos(a)*7.5,Math.sin(a)*7.5); c.stroke(); } }
-  else if(t==="werk"){ c.save(); c.rotate(busy?S.t*2:0); c.beginPath(); c.arc(-3,-1,4,0,7); c.stroke(); c.restore();
-    c.save(); c.rotate(busy?-S.t*3:0); c.beginPath(); c.arc(4,3,3,0,7); c.stroke(); c.restore();
+  else if(t==="werk"){ c.save(); c.rotate(busy?animT*2:0); c.beginPath(); c.arc(-3,-1,4,0,7); c.stroke(); c.restore();
+    c.save(); c.rotate(busy?-animT*3:0); c.beginPath(); c.arc(4,3,3,0,7); c.stroke(); c.restore();
     c.beginPath(); c.arc(-3,-1,1.2,0,7); c.fill(); }
   else if(t==="endm"){ c.beginPath(); c.arc(0,0,7,0,7); c.stroke();
     c.beginPath(); c.moveTo(0,0); c.lineTo(0,-4); c.moveTo(0,0); c.lineTo(3,2); c.stroke();
-    c.save(); c.rotate(busy?S.t*3:0); c.beginPath(); c.arc(0,0,1.5,0,7); c.fill(); c.restore();
+    c.save(); c.rotate(busy?animT*3:0); c.beginPath(); c.arc(0,0,1.5,0,7); c.fill(); c.restore();
     c.beginPath(); c.moveTo(-3,-9); c.lineTo(3,-9); c.moveTo(-3,9); c.lineTo(3,9); c.stroke(); }
   else if(t==="atelier"){ c.beginPath(); c.moveTo(-7,8); c.lineTo(-7,-2); c.lineTo(0,-8); c.lineTo(7,-2); c.lineTo(7,8); c.stroke();
     c.beginPath(); c.moveTo(-7,8); c.lineTo(7,8); c.stroke();
     c.beginPath(); c.arc(0,2,2.6,0,7); c.stroke();
-    if(busy){ c.save(); c.rotate(S.t*2); c.beginPath(); c.moveTo(0,2); c.lineTo(0,-0.4); c.stroke(); c.restore(); } }
+    if(busy){ c.save(); c.rotate(animT*2); c.beginPath(); c.moveTo(0,2); c.lineTo(0,-0.4); c.stroke(); c.restore(); } }
   else if(t==="zert"){ c.beginPath(); c.arc(0,-2,5.5,0,7); c.stroke();
     c.beginPath(); c.moveTo(-2.5,-2); c.lineTo(-0.5,0); c.lineTo(3,-4); c.stroke();
     c.beginPath(); c.moveTo(-3,4); c.lineTo(-5,10); c.lineTo(-2,9); c.lineTo(-1,12); c.lineTo(1,6); c.moveTo(3,4); c.lineTo(5,10); c.lineTo(2,9); c.lineTo(1,12); c.stroke(); }
@@ -1845,11 +1881,11 @@ function cIcon(c,t,x,y,col,busy){
   else if(t==="werkstatt"){ c.beginPath(); c.moveTo(-10,9); c.lineTo(10,9); c.stroke();
     c.beginPath(); c.arc(0,3,9,Math.PI,0); c.stroke();
     c.beginPath(); c.arc(0,4,3.6,0,7); c.stroke();
-    c.save(); c.rotate(busy?S.t*2:0.6); c.beginPath(); c.moveTo(0,4); c.lineTo(0,1.2); c.stroke(); c.restore(); }
+    c.save(); c.rotate(busy?animT*2:0.6); c.beginPath(); c.moveTo(0,4); c.lineTo(0,1.2); c.stroke(); c.restore(); }
   c.restore();
 }
 function drawWorker(c,x,y,busy){
-  const arm=busy?Math.sin(S.t*8)*4:0;
+  const arm=busy?Math.sin(animT*8)*4:0;
   c.fillStyle="#2E6FE4"; c.beginPath(); c.roundRect(x-6,y-4,12,14,4); c.fill();
   c.fillStyle="#E8C4A0"; c.beginPath(); c.arc(x,y-9,5,0,7); c.fill();
   c.fillStyle="#3A2A1E"; c.beginPath(); c.arc(x,y-11,5,Math.PI,0); c.fill();
@@ -1893,7 +1929,7 @@ function drawTower(dt){
     // Förderband mit laufenden Rollen
     c.fillStyle="#2B2A26"; c.beginPath(); c.roundRect(X0-2,laneY-7,SLW*L+4,16,5); c.fill();
     c.fillStyle="#3E3C36"; c.fillRect(X0,laneY-4,SLW*L,10);
-    const off=((S.t*24*d)%12+12)%12; c.fillStyle="#57544C"; for(let k=-1;k<SLW*L/12+1;k++){ const xx=X0+k*12+off; if(xx>X0&&xx<X0+SLW*L-3) c.fillRect(xx,laneY-4,3,10); }
+    const off=((animT*24*d)%12+12)%12; c.fillStyle="#57544C"; for(let k=-1;k<SLW*L/12+1;k++){ const xx=X0+k*12+off; if(xx>X0&&xx<X0+SLW*L-3) c.fillRect(xx,laneY-4,3,10); }
     // Maschinenplätze
     for(let i=0;i<L;i++){ const x=X0+i*SLW, m=F.slots[i];
       if(!m){ c.setLineDash([4,4]); c.strokeStyle="rgba(122,115,102,.55)"; c.lineWidth=1.4; c.beginPath(); c.roundRect(x+7,laneY-70,SLW-14,54,7); c.stroke(); c.setLineDash([]);
@@ -1916,7 +1952,8 @@ function drawTower(dt){
         else cIcon(c,m.t,x+SLW/2,laneY-42,col,m.t==="werkstatt"?(S.mw&&S.mw.phase==="bau"):m.busy);
         if(m.t==="werkstatt"){ const Mw=S.mw, txt=!Mw?"AUFTRAG WARTET":Mw.phase==="bau"?Math.ceil(MEISTER_BAUZEIT-(S.t-Mw.bauT))+" S":Mw.phase==="fertig"?"FERTIG":Object.keys(Mw.teile).length+" OF 4";
           c.fillStyle=Mw&&Mw.phase==="bau"?"#B8432F":"#7B5BC0"; c.font="800 8px Archivo, system-ui, sans-serif"; c.textAlign="center"; c.fillText(txt,x+SLW/2,laneY-18); }
-        if(m.busy){ c.strokeStyle=col; c.lineWidth=3; c.beginPath(); c.arc(x+SLW/2,laneY-42,17,-Math.PI/2,-Math.PI/2+Math.PI*2*m.p/T0); c.stroke(); }
+        if(m.busy){ const pr=Math.min(1,(m.p+taktPhase())/T0);
+          c.strokeStyle=col; c.lineWidth=3; c.beginPath(); c.arc(x+SLW/2,laneY-42,17,-Math.PI/2,-Math.PI/2+Math.PI*2*pr); c.stroke(); }
         if(m.out) cItem(c,m.out.k,x+SLW-16,laneY-60);
         if(m._state==="wait"&&m._miss&&!m.full&&!(m.t==="seal")){ c.fillStyle="rgba(232,180,41,.25)"; c.beginPath(); c.arc(x+SLW/2,laneY-20,8,0,7); c.fill();
           c.save(); c.translate(x+SLW/2,laneY-20); c.scale(.6,.6); cItem(c,m._miss==="fertig"?Object.keys(W.models)[0]:m._miss,0,0); c.restore(); }
@@ -1929,7 +1966,7 @@ function drawTower(dt){
       hits.push({x,y:laneY-76,w:SLW,h:84,act:()=>openSlot(f,i)}); }
     // Waren gleiten weich
     F.lane.forEach((it,i)=>{ if(!it) return; const tx=X0+i*SLW+SLW/2, ty=laneY+1;
-      if(it.dx===undefined||Math.abs(it.dy-ty)>20){ it.dx=tx; it.dy=ty; } it.dx+=(tx-it.dx)*Math.min(1,dt*9); it.dy=ty; cItem(c,it.k,it.dx,it.dy);
+      gleite(it,tx,ty,dt); cItem(c,it.k,it.dx,it.dy);
       if(it.to){ const tm=W.floors[it.to.f]&&W.floors[it.to.f].slots[it.to.i]; if(tm){ c.fillStyle=tm.t==="equip"?"#C98A1B":tm.t==="bench"?"#2E6FE4":tm.t==="press"?"#7A7366":"#1B1A17";
         c.beginPath(); c.arc(it.dx,it.dy-9,2.6,0,7); c.fill(); } } });
     // Durchgangsband ab der zweiten Etage: schmaler, dunkler, Ware kleiner
@@ -1937,7 +1974,7 @@ function drawTower(dt){
       c.fillStyle="#1F1E1B"; c.beginPath(); c.roundRect(X0-2,py-5,SLW*L+4,11,4); c.fill(); c.fillStyle="#34322D"; c.fillRect(X0,py-3,SLW*L,7);
       c.fillStyle="#4A4740"; for(let k=-1;k<SLW*L/12+1;k++){ const xx=X0+k*12+off; if(xx>X0&&xx<X0+SLW*L-3) c.fillRect(xx,py-3,2,7); }
       (F.pass||[]).forEach((it,i)=>{ if(!it) return; const tx=X0+i*SLW+SLW/2;
-        if(it.dx===undefined||Math.abs(it.dy-py)>20){ it.dx=tx; it.dy=py; } it.dx+=(tx-it.dx)*Math.min(1,dt*9); it.dy=py;
+        gleite(it,tx,py,dt);
         c.save(); c.translate(it.dx,py); c.scale(.62,.62); cItem(c,it.k,0,0); c.restore(); });
       // Beschriftung: Solange Ware durchfährt, hell, sonst dezent. Ein Etikett erklärt mehr als ein Satz.
       { const faehrt=(F.pass||[]).some(Boolean);
@@ -1962,7 +1999,7 @@ function drawTower(dt){
   // Aufzüge
   for(let f=0;f<n-1;f++){ const d=dirOf(f), sx=d===1?468:18, Yt=floorTop(f+1)+BAND_Y-20, Yb=floorTop(f)+(f>0?DURCH_Y+8:BAND_Y+14), Lf=W.lifts[f];
     c.fillStyle="#57544C"; c.fillRect(sx,Yt,14,Yb-Yt); c.strokeStyle="#8E877A"; c.lineWidth=1; c.beginPath(); c.moveTo(sx+7,Yt); c.lineTo(sx+7,Yb); c.stroke();
-    const pr=Lf.q.length?Math.min(1,Lf.c/LIFT_SPEED[Lf.lvl]):0, cy=Yb-14-(Yb-Yt-18)*pr;
+    const pr=Lf.q.length?Math.min(1,(Lf.c+taktPhase())/LIFT_SPEED[Lf.lvl]):0, cy=Yb-14-(Yb-Yt-18)*pr;
     c.fillStyle=Lf.q.length>=2?"#B8432F":"#FBF8F2"; c.beginPath(); c.roundRect(sx+1,cy,12,14,2); c.fill();
     if(Lf.q.length){ c.fillStyle="#1B1A17"; c.font="800 8px Archivo, system-ui, sans-serif"; c.textAlign="center"; c.fillText(Lf.q.length,sx+7,cy+10); }
     // Weiche oben am Aufzug: zwei Abzweige, der zuletzt benutzte leuchtet
@@ -1997,8 +2034,17 @@ function size(){ const w=cv.clientWidth||360; DPR=Math.min(2,window.devicePixelR
 /* Feste Zufallszahl pro Feld, damit die Stadt nicht flackert */
 const hsh=(x,y,k)=>{ let h=(x*374761393+y*668265263+(k||0)*2246822519)|0; h=(h^(h>>>13))*1274126177; return ((h^(h>>>16))>>>0)/4294967296; };
 const ROADS_X=[0.5,4.5,8.5], ROADS_Y=[2.6,5.3,7.9,10.2,12.5];
+// Fahrzeuge fahren auf ihrem Weg zwischen zwei Rechenschritten weiter, statt zehnmal pro
+// Sekunde ein Stück zu springen. Die Strecke ist bekannt, also lässt sie sich vorrechnen.
+function weiter(weg,d,tempo){ if(!weg) return {x:0,y:0};
+  const L2=pathLen(weg), dd=Math.max(0,Math.min(L2,d+tempo*Math.max(0,animT-S.t)));
+  return pointAt(weg,dd); }
+// Wer frei läuft (Diebe, Wachleute), wird weich nachgezogen
+function weich(o){ if(o.rx===undefined||Math.hypot(o.rx-o.x,o.ry-o.y)>1.5){ o.rx=o.x; o.ry=o.y; }
+  const k=Math.min(1,(animT-(o.rt||animT))*12); o.rt=animT;
+  o.rx+=(o.x-o.rx)*k; o.ry+=(o.y-o.ry)*k; return {x:o.rx,y:o.ry}; }
 function drawCity(){
-  if(!ctx) return; const c=ctx, X=v=>v*T, F=`Archivo, system-ui, sans-serif`, t=S.t; c.setTransform(DPR,0,0,DPR,0,0);
+  if(!ctx) return; const c=ctx, X=v=>v*T, F=`Archivo, system-ui, sans-serif`, t=animT; c.setTransform(DPR,0,0,DPR,0,0);
   drawZone(c,F,t);
   c.translate(0,TOPR()*T);
   // Unbewegliches (Blöcke, Parks, Straßen) einmal vorzeichnen und nur noch hinlegen
@@ -2060,7 +2106,12 @@ function drawCity(){
   c.beginPath(); c.arc(X(HQ.x),X(HQ.y),X(SUPPLY_R),0,7); c.fill(); c.stroke();
   if(S.uhr&&S.uhr.ort){ c.beginPath(); c.arc(X(S.uhr.ort.x),X(S.uhr.ort.y),X(SUPPLY_R),0,7); c.fill(); c.stroke();
     if(RES2().werfer){ c.strokeStyle="rgba(123,91,192,.55)"; c.fillStyle="rgba(123,91,192,.05)"; c.lineWidth=2;
-      c.beginPath(); c.arc(X(S.uhr.ort.x),X(S.uhr.ort.y),X(werferWeite()),0,7); c.fill(); c.stroke(); } }
+      c.beginPath(); c.arc(X(S.uhr.ort.x),X(S.uhr.ort.y),X(werferWeite()),0,7); c.fill(); c.stroke();
+      // Nachladebalken am Dach: man sieht, wann der nächste Wurf geht
+      const ox=X(S.uhr.ort.x), oy=X(S.uhr.ort.y), laedt=Math.max(0,(S.werferCd||0)-S.t);
+      c.setLineDash([]); c.fillStyle="rgba(0,0,0,.35)"; c.fillRect(ox-T*0.3,oy-T*0.62,T*0.6,4);
+      c.fillStyle=laedt?"#7B5BC0":"#1F7A55"; c.fillRect(ox-T*0.3,oy-T*0.62,T*0.6*(laedt?1-laedt/WERFER_LADEN:1),4);
+      c.setLineDash([8,6]); } }
   c.setLineDash([]); c.lineDashOffset=0;
   // Boutiquen für Uhren und ihre Replikas
   // Boutiquen stehen auf dem Uhrenplatz rechts. Beim Flagship für Uhren ist das Flagship die Boutique.
@@ -2087,7 +2138,10 @@ function drawCity(){
     c.fillStyle="#fff"; c.font=`800 ${T*0.17}px ${F}`; c.textAlign="center"; c.fillText({leder:"LEDER",gummi:"GUMMI",metall:"METALL",sand:"SAND"}[s.k]||s.k.toUpperCase(),x,y+T*0.07);
     c.fillStyle="#1F7A55"; c.fillRect(x-w/2,y+h/2+4,w,4); });
   // Verstecke: Hütte mit Wellblech, Glut und Rauch
-  S.nests.forEach(n=>{ if(!n.alive) return; const x=X(n.x), y=X(n.y), pl=1+Math.sin(t*3)*0.05;
+  S.nests.forEach(n=>{ if(!n.alive) return; const pl=1+Math.sin(t*3)*0.05;
+    // Nach einem Volltreffer wackelt die Hütte
+    const beben=n.wucht&&S.t-n.wucht<0.6?Math.sin((S.t-n.wucht)*50)*(1-(S.t-n.wucht)/0.6)*5:0;
+    const x=X(n.x)+beben, y=X(n.y);
     if(S.awake){ const g=c.createRadialGradient(x,y,2,x,y,T*0.95*pl); g.addColorStop(0,"rgba(184,67,47,.35)"); g.addColorStop(1,"rgba(184,67,47,0)"); c.fillStyle=g; c.beginPath(); c.arc(x,y,T*0.95*pl,0,7); c.fill(); }
     c.fillStyle="rgba(0,0,0,.25)"; c.fillRect(x-T*0.36+4,y-T*0.18+5,T*0.72,T*0.46);
     c.fillStyle="#5B4636"; c.fillRect(x-T*0.36,y-T*0.18,T*0.72,T*0.46);
@@ -2140,7 +2194,8 @@ function drawCity(){
   // Transporter, in Fahrtrichtung gedreht
   S.trucks.forEach(tr=>{ if(!tr.pos) return; const p=tr.path, a=pointAt(p,Math.max(0,tr.d-0.05)), b=pointAt(p,tr.d+0.05);
     let ang=Math.atan2(b.y-a.y,b.x-a.x); if(tr.dir===-1) ang+=Math.PI;
-    c.save(); c.translate(X(tr.pos.x),X(tr.pos.y)); c.rotate(ang);
+    const tp=weiter(p,tr.d,tr.wait?0:tr.dir*1.3);
+    c.save(); c.translate(X(tp.x),X(tp.y)); c.rotate(ang);
     c.fillStyle="rgba(0,0,0,.25)"; c.fillRect(-T*0.24+2,-T*0.13+3,T*0.48,T*0.26);
     c.fillStyle="#FBF8F2"; c.fillRect(-T*0.24,-T*0.13,T*0.34,T*0.26);
     c.fillStyle="#1F7A55"; c.fillRect(T*0.1,-T*0.12,T*0.14,T*0.24);
@@ -2155,19 +2210,20 @@ function drawCity(){
     c.fillStyle="#FBF8F2"; c.fillRect(x-T*0.28+sh,y-T*0.15,T*0.42,T*0.3); c.fillStyle="#7A7366"; c.fillRect(x+T*0.14+sh,y-T*0.14,T*0.14,T*0.28);
     c.fillStyle="#C9A36B"; c.fillRect(x-T*0.24+sh,y-T*0.22,T*0.16,T*0.14); c.fillRect(x-T*0.06+sh,y-T*0.26,T*0.16,T*0.18); c.fillStyle="#A9834B"; c.fillRect(x-T*0.24+sh,y-T*0.16,T*0.16,T*0.02);
     c.fillStyle="rgba(0,0,0,.25)"; c.fillRect(x-T*0.28,y+T*0.2,T*0.56,3); c.fillStyle="#C9A36B"; c.fillRect(x-T*0.28,y+T*0.2,T*0.56*dc.hp/dc.max,3); });
-  S.vans.forEach(v=>{ if(v.state==="home"||!v.pos) return; const x=X(v.pos.x), y=X(v.pos.y);
+  S.vans.forEach(v=>{ if(v.state==="home"||!v.pos) return; const vp=weiter(v.path,v.d,1.5), x=X(vp.x), y=X(vp.y);
     c.fillStyle="rgba(0,0,0,.25)"; c.fillRect(x-T*0.2+2,y-T*0.12+3,T*0.4,T*0.24);
     c.fillStyle="#C98A1B"; c.beginPath(); c.roundRect(x-T*0.2,y-T*0.12,T*0.4,T*0.24,4); c.fill();
     if(v.cargo){ c.strokeStyle="#FBF8F2"; c.lineWidth=1.6; c.beginPath(); c.arc(x,y,T*0.07,0,7); c.moveTo(x-T*0.07,y); c.lineTo(x+T*0.07,y); c.stroke(); } });
   // Der gepanzerte Lieferwagen zwischen Sohle und der Manufaktur
-  if(S.liefer&&S.liefer.state!=="laden"){ const v=S.liefer, x=X(v.pos.x), y=X(v.pos.y);
+  if(S.liefer&&S.liefer.state!=="laden"){ const v=S.liefer, lp=weiter(v.weg,v.d,v.state==="hoch"?1.1:-1.4), x=X(lp.x), y=X(lp.y);
     c.fillStyle="rgba(0,0,0,.3)"; c.fillRect(x-T*0.26+3,y-T*0.16+4,T*0.52,T*0.32);
     c.fillStyle="#4E4A42"; c.beginPath(); c.roundRect(x-T*0.26,y-T*0.16,T*0.52,T*0.32,4); c.fill();
     c.fillStyle="#2B2A26"; c.fillRect(x-T*0.26,y-T*0.04,T*0.52,T*0.06);
     if(v.cargo){ c.fillStyle="#8A5A35"; for(let q=0;q<Math.min(3,v.cargo);q++) c.fillRect(x-T*0.18+q*T*0.12,y-T*0.1,T*0.08,T*0.1);
       c.fillStyle="#1B1A17"; c.font=`800 ${T*0.15}px ${F}`; c.textAlign="center"; c.fillText(v.cargo+" straps",x,y-T*0.24); } }
   // Die Expedition zum Meteoritengestein
-  if(S.mw&&S.mw.exp){ const e=S.mw.exp, z=e.ziel||EXP_ZIELE[1], x=X(e.pos.x), y=X(e.pos.y), zx=X(z.x), zy=X(z.y);
+  if(S.mw&&S.mw.exp){ const e=S.mw.exp, z=e.ziel||EXP_ZIELE[1], ep=weiter(e.weg,e.d,e.grab&&!e.hat?0:(e.zurueck?-1.1:1.1)),
+      x=X(ep.x), y=X(ep.y), zx=X(z.x), zy=X(z.y);
     if(!e.hat){ c.strokeStyle="rgba(123,91,192,.7)"; c.lineWidth=2; c.setLineDash([5,4]); c.beginPath(); c.arc(zx,zy,T*0.3,0,7); c.stroke(); c.setLineDash([]);
       c.fillStyle="#7B5BC0"; c.font=`800 ${T*0.16}px ${F}`; c.textAlign="center"; c.fillText("Meteorit",zx,zy-T*0.4); }
     c.fillStyle="rgba(0,0,0,.3)"; c.fillRect(x-T*0.24+3,y-T*0.15+4,T*0.48,T*0.3);
@@ -2189,10 +2245,19 @@ function drawCity(){
       c.fillStyle="#fff"; c.fillText(melderZiel.text,zx,ty); }
     c.restore(); }
   // Netze
-  S.shots.forEach(s=>{ const k=1-s.ttl/(s.max||0.25), e=Math.max(0,Math.min(1,k*1.6)), bx=X(s.a.x+(s.b.x-s.a.x)*e), by=X(s.a.y+(s.b.y-s.a.y)*e), r=T*(0.08+e*0.14);
-    c.strokeStyle="rgba(201,138,27,.9)"; c.lineWidth=1.2; c.beginPath(); c.moveTo(X(s.a.x),X(s.a.y)); c.lineTo(bx,by); c.stroke();
+  S.shots.forEach(s=>{ const k=1-s.ttl/(s.max||0.25), e=Math.max(0,Math.min(1,k*1.6)), gr=s.wucht?2.6:1;
+    // Der schwere Wurf fliegt im Bogen, der kleine geradeaus
+    const bogen=s.wucht?Math.sin(Math.min(1,e)*Math.PI)*T*0.8:0;
+    const bx=X(s.a.x+(s.b.x-s.a.x)*e), by=X(s.a.y+(s.b.y-s.a.y)*e)-bogen, r=T*(0.08+e*0.14)*gr;
+    c.strokeStyle=s.wucht?"rgba(123,91,192,.9)":"rgba(201,138,27,.9)"; c.lineWidth=s.wucht?2.6:1.2;
+    c.beginPath(); c.moveTo(X(s.a.x),X(s.a.y)); c.lineTo(bx,by); c.stroke();
     c.beginPath(); c.arc(bx,by,r,0,7); c.stroke();
-    for(let q=-1;q<=1;q++){ c.beginPath(); c.moveTo(bx-r,by+q*r*0.5); c.lineTo(bx+r,by+q*r*0.5); c.moveTo(bx+q*r*0.5,by-r); c.lineTo(bx+q*r*0.5,by+r); c.stroke(); } });
+    for(let q=-1;q<=1;q++){ c.beginPath(); c.moveTo(bx-r,by+q*r*0.5); c.lineTo(bx+r,by+q*r*0.5); c.moveTo(bx+q*r*0.5,by-r); c.lineTo(bx+q*r*0.5,by+r); c.stroke(); }
+    // Einschlag: Ring und Splitter, sobald der Wurf angekommen ist
+    if(s.wucht&&e>=1){ const f=Math.min(1,(k-0.62)/0.38), zx=X(s.b.x), zy=X(s.b.y);
+      c.strokeStyle=`rgba(123,91,192,${(1-f)*0.8})`; c.lineWidth=3; c.beginPath(); c.arc(zx,zy,T*(0.2+f*0.9),0,7); c.stroke();
+      c.fillStyle=`rgba(90,70,54,${1-f})`; for(let q=0;q<8;q++){ const w=q*0.785, d=T*(0.2+f*0.7);
+        c.fillRect(zx+Math.cos(w)*d,zy+Math.sin(w)*d-T*0.1,3,3); } } });
   // Gefangene im Netz, zappelnd
   S.caught.forEach((g,idx)=>{ if(g.gone) return; const x=X(g.x), y=X(g.y), w=Math.sin(t*22+idx)*2.2;
     c.fillStyle="rgba(0,0,0,.2)"; c.beginPath(); c.ellipse(x,y+T*0.2,T*0.16,T*0.05,0,0,7); c.fill();
@@ -2211,7 +2276,7 @@ function drawCity(){
     const on=Math.floor(t*8)%2; c.fillStyle=on?"#E4572E":"#2E6FE4"; c.fillRect(-T*0.08,-T*0.17,T*0.08,T*0.06); c.fillStyle=on?"#2E6FE4":"#E4572E"; c.fillRect(0,-T*0.17,T*0.08,T*0.06);
     c.restore(); });
   // Banden: Kapuzen mit Schatten und Gang
-  S.raiders.forEach((r,idx)=>{ const x=X(r.x), y=X(r.y), bob=Math.sin(t*(r.flee?14:9)+idx)*1.5, hit=r.hitT&&t-r.hitT<0.25;
+  S.raiders.forEach((r,idx)=>{ const rp=weich(r), x=X(rp.x), y=X(rp.y), bob=Math.sin(t*(r.flee?14:9)+idx)*1.5, hit=r.hitT&&t-r.hitT<0.25;
     if(hit){ c.save(); c.translate(x,y); c.rotate(Math.sin((t-r.hitT)*40)*0.5); c.translate(-x,-y); }
     c.fillStyle="rgba(0,0,0,.25)"; c.beginPath(); c.ellipse(x,y+T*0.2,T*0.13,T*0.05,0,0,7); c.fill();
     c.fillStyle="#1B1A17"; c.beginPath(); c.roundRect(x-T*0.1,y-T*0.02+bob,T*0.2,T*0.22,4); c.fill();
@@ -2221,7 +2286,7 @@ function drawCity(){
     if(hit) c.restore();
     c.fillStyle="rgba(0,0,0,.25)"; c.fillRect(x-T*0.14,y-T*0.3,T*0.28,3); c.fillStyle="#B8432F"; c.fillRect(x-T*0.14,y-T*0.3,T*0.28*Math.max(0,r.hp)/r.max,3); });
   // Razzia-Trupp
-  S.squads.forEach((q,idx)=>{ const x=X(q.x), y=X(q.y), bob=Math.sin(t*10+idx)*1.5;
+  S.squads.forEach((q,idx)=>{ const qp=weich(q), x=X(qp.x), y=X(qp.y), bob=Math.sin(t*10+idx)*1.5;
     c.fillStyle="rgba(0,0,0,.25)"; c.beginPath(); c.ellipse(x,y+T*0.2,T*0.13,T*0.05,0,0,7); c.fill();
     c.fillStyle="#1F7A55"; c.beginPath(); c.roundRect(x-T*0.1,y-T*0.02+bob,T*0.2,T*0.22,4); c.fill(); c.beginPath(); c.arc(x,y-T*0.08+bob,T*0.1,0,7); c.fill();
     c.fillStyle="#FBF8F2"; c.fillRect(x-T*0.08,y+T*0.06+bob,T*0.16,T*0.04);
@@ -2461,6 +2526,11 @@ function stockung(){
         return {t:`<b>Too many machines on one floor.</b> The belt only gets about one part per tick out of a floor. That's why ${stehen} spots at the front are standing still. ${W2.name==="sohle"&&S.uhr?"In Sohle you can still move and remove machines, only new ones can no longer be added.":"Build one machine less or spread them across floors."}`,
           zeig:{art:"platz", f, i:F.slots.findIndex(m=>m&&(m.blockT||0)>40)},
           go:()=>{ switchView("turm"); const i=F.slots.findIndex(m=>m&&(m.blockT||0)>40); guide({tower:()=>[f,i]},"This machine can't get rid of its part because everything ahead of it is full. Behind it stand the machines closer to the exit."); }}; } }
+  // 4c. Eine Bande sitzt neben einem deiner Läden. Der verkauft nichts, und das sieht man sonst nirgends.
+  { const d=S.districts.find(x=>x.shop&&x.nest!==undefined&&S.nests[x.nest]&&S.nests[x.nest].alive);
+    if(d) return {t:`<b>Your shop in ${d.n} is shut.</b> A gang sits next to it and takes the money. It sells nothing until the hideout is gone.`,
+      zeig:{art:"stadt", ziel:S.nests[d.nest], text:"Hideout"},
+      go:()=>{ switchView("stadt"); guideCity(S.nests[d.nest],`This hideout keeps your shop in ${d.n} shut. A raid clears it, or the net launcher on the roof of the manufactory.`); }}; }
   // 5. Schuhe stapeln sich, ein Laden fehlt
   { const fin=Object.values(S.fin).reduce((a,b)=>a+b,0), her=perMin("mk_schuh"), verk=perMin("sold");
     const frei=S.districts.find(d=>!d.shop&&d.nest===undefined&&d.n!=="Zuhause");
@@ -2621,6 +2691,9 @@ if(typeof window!=="undefined" && typeof requestAnimationFrame!=="undefined"){
   let acc=0,last=performance.now(),ui=0,saveT=0;
   (function loop(now){ const dt=Math.min(0.25,(now-last)/1000); last=now;
     if(!paused){ acc+=dt; while(acc>=DT){ step(); acc-=DT; } }
+    // Zeichenuhr: Spielzeit plus der angefangene Rechenschritt. Damit läuft alles weich,
+    // und Vergleiche mit S.t (Treffer, Blitze) stimmen weiter.
+    animT=S.t+(paused?0:acc);
     if(view==="stadt") drawCity(); else drawTower(dt); tutUpdate(); sheetAuffrischen(dt); ui+=dt; if(ui>0.2&&!pressing){ ui=0; if(view==="turm") renderHand(); hud(); }
     saveT+=dt; if(saveT>2){ saveT=0; saveGame(); }
     requestAnimationFrame(loop); })(last);
