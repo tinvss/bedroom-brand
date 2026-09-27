@@ -1604,15 +1604,21 @@ function cityTap(x,y){
     return; }
   const post=S.posts.find(p=>dist(p,{x,y})<0.75);
   if(post){ const rc=Math.round((post.max-post.hp)*3), ok=rc>0&&S.money>=rc;
+    // Nach einer Razzia kommen alle Posten beschädigt zurück. Einer nach dem anderen ist Arbeit ohne Entscheidung.
+    const kaputt=S.posts.filter(q=>q.hp<q.max), rcAll=Math.round(kaputt.reduce((a2,q)=>a2+(q.max-q.hp)*3,0)), okAll=rcAll>0&&S.money>=rcAll;
+    // Eigene Variable statt Backtick im Backtick, sonst zerschneidet der Textextraktor die englische Fassung
+    const alleZeile = kaputt.length>1 ? `<div class="opt ${okAll?"":"off"}" ${okAll?'data-all="1"':""}><div><b>Alle Wachposten reparieren</b><span>${kaputt.length} Posten haben Schaden. Nach einer Razzia sind das meistens alle.</span></div><em>${rcAll}</em></div>` : "";
     openSheet(`<h3>Wachposten</h3><p>Zustand ${Math.round(post.hp)} von ${post.max}. Vorrat ${post.stock} von ${postMax()}, ${inRange(post)?"wird direkt nachgefüllt":"braucht einen Versorgungswagen"}.${post.away?" Die Leute sind gerade auf Razzia.":""}</p>
       ${post.away?`<div class="opt" data-rc="1"><div><b>Trupp zurückrufen</b><span>Die Wachleute gehen auf ihre Posten zurück. Der Schaden am Versteck bleibt.</span></div><em></em></div>`:""}
       <div class="opt ${ok?"":"off"}" ${ok?'data-go="1"':""}><div><b>Reparieren</b><span></span></div><em>${rc||""}</em></div>
+      ${alleZeile}
       <div class="opt" data-mv="1"><div><b>Verschieben</b><span>Danach auf ein freies Feld tippen. Der Vorrat zieht mit.</span></div><em></em></div>
       <div class="opt" data-sell="1"><div><b>Abbauen</b><span>Du bekommst einen Teil zurück.</span></div><em>+60</em></div>`,
       ()=>{ const b=document.querySelector("[data-go]"); if(b) b.onclick=()=>{ S.money-=rc; post.hp=post.max; $("sheet").innerHTML=""; };
+        const ab=document.querySelector("[data-all]"); if(ab) ab.onclick=()=>{ if(S.money<rcAll) return; S.money-=rcAll; kaputt.forEach(q=>q.hp=q.max); pop(post,"alle repariert","#1F7A55"); $("sheet").innerHTML=""; };
         const rcb=document.querySelector("[data-rc]"); if(rcb) rcb.onclick=()=>{ S.squads.forEach(q=>q.back=true); $("sheet").innerHTML=""; };
-        document.querySelector("[data-mv]").onclick=()=>{ S.movePost=post; $("sheet").innerHTML=""; pop(post,"Tipp auf ein freies Feld","#1F7A55"); };
-        document.querySelector("[data-sell]").onclick=()=>{ S.money+=60; S.ammo=Math.min(S.ammoCap,S.ammo+post.stock); S.posts=S.posts.filter(o=>o!==post); $("sheet").innerHTML=""; }; });
+        const mv=document.querySelector("[data-mv]"); if(mv) mv.onclick=()=>{ S.movePost=post; $("sheet").innerHTML=""; pop(post,"Tipp auf ein freies Feld","#1F7A55"); };
+        const sl=document.querySelector("[data-sell]"); if(sl) sl.onclick=()=>{ S.money+=60; S.ammo=Math.min(S.ammoCap,S.ammo+post.stock); S.posts=S.posts.filter(o=>o!==post); $("sheet").innerHTML=""; }; });
     return; }
   if(S.movePost){ const mp=S.movePost; S.movePost=null; if(S.posts.includes(mp)&&dist({x,y},HQ)>=0.9){ mp.x=Math.floor(x)+.5; mp.y=Math.floor(y)+.5; pop(mp,"verschoben","#1F7A55"); } return; }
   const c=postCost(), ok=S.money>=c;

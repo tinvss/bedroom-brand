@@ -1604,15 +1604,21 @@ function cityTap(x,y){
     return; }
   const post=S.posts.find(p=>dist(p,{x,y})<0.75);
   if(post){ const rc=Math.round((post.max-post.hp)*3), ok=rc>0&&S.money>=rc;
+    // Nach einer Razzia kommen alle Posten beschädigt zurück. Einer nach dem anderen ist Arbeit ohne Entscheidung.
+    const kaputt=S.posts.filter(q=>q.hp<q.max), rcAll=Math.round(kaputt.reduce((a2,q)=>a2+(q.max-q.hp)*3,0)), okAll=rcAll>0&&S.money>=rcAll;
+    // Eigene Variable statt Backtick im Backtick, sonst zerschneidet der Textextraktor die englische Fassung
+    const alleZeile = kaputt.length>1 ? `<div class="opt ${okAll?"":"off"}" ${okAll?'data-all="1"':""}><div><b>Repair every guard post</b><span>${kaputt.length} posts are damaged. After a raid that is usually all of them.</span></div><em>${rcAll}</em></div>` : "";
     openSheet(`<h3>Guard post</h3><p>Condition ${Math.round(post.hp)} of ${post.max}. Supply ${post.stock} of ${postMax()}, ${inRange(post)?"refilled directly":"needs a supply van"}.${post.away?" The people are out on a raid right now.":""}</p>
       ${post.away?`<div class="opt" data-rc="1"><div><b>Call the squad back</b><span>The guards return to their posts. The damage to the hideout stays.</span></div><em></em></div>`:""}
       <div class="opt ${ok?"":"off"}" ${ok?'data-go="1"':""}><div><b>Repair</b><span></span></div><em>${rc||""}</em></div>
+      ${alleZeile}
       <div class="opt" data-mv="1"><div><b>Move</b><span>Then tap an empty square. The supply moves along.</span></div><em></em></div>
       <div class="opt" data-sell="1"><div><b>Remove</b><span>You get part of it back.</span></div><em>+60</em></div>`,
       ()=>{ const b=document.querySelector("[data-go]"); if(b) b.onclick=()=>{ S.money-=rc; post.hp=post.max; $("sheet").innerHTML=""; };
+        const ab=document.querySelector("[data-all]"); if(ab) ab.onclick=()=>{ if(S.money<rcAll) return; S.money-=rcAll; kaputt.forEach(q=>q.hp=q.max); pop(post,"all repaired","#1F7A55"); $("sheet").innerHTML=""; };
         const rcb=document.querySelector("[data-rc]"); if(rcb) rcb.onclick=()=>{ S.squads.forEach(q=>q.back=true); $("sheet").innerHTML=""; };
-        document.querySelector("[data-mv]").onclick=()=>{ S.movePost=post; $("sheet").innerHTML=""; pop(post,"Tap an empty square","#1F7A55"); };
-        document.querySelector("[data-sell]").onclick=()=>{ S.money+=60; S.ammo=Math.min(S.ammoCap,S.ammo+post.stock); S.posts=S.posts.filter(o=>o!==post); $("sheet").innerHTML=""; }; });
+        const mv=document.querySelector("[data-mv]"); if(mv) mv.onclick=()=>{ S.movePost=post; $("sheet").innerHTML=""; pop(post,"Tap an empty square","#1F7A55"); };
+        const sl=document.querySelector("[data-sell]"); if(sl) sl.onclick=()=>{ S.money+=60; S.ammo=Math.min(S.ammoCap,S.ammo+post.stock); S.posts=S.posts.filter(o=>o!==post); $("sheet").innerHTML=""; }; });
     return; }
   if(S.movePost){ const mp=S.movePost; S.movePost=null; if(S.posts.includes(mp)&&dist({x,y},HQ)>=0.9){ mp.x=Math.floor(x)+.5; mp.y=Math.floor(y)+.5; pop(mp,"verschoben","#1F7A55"); } return; }
   const c=postCost(), ok=S.money>=c;
