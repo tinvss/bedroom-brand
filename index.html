@@ -277,7 +277,7 @@ function beuteZurueck(n){ const b=n.beute; if(!b) return; n.beute=null;
 const zielVon=src=> src.k==="sand" ? "uhren" : (src.k==="metall" ? (src.ziel||"sohle") : "sohle");
 const zielWerk=tr=>{ const src=S.sources[tr.src]; return src&&zielVon(src)==="uhren"&&S.uhr?uhrWerk():sohleWerk(); };
 const zielName=src=>zielVon(src)==="uhren"?"Manufactory":"Sohle";
-const fleetUsed=()=>S.trucks.length+S.vans.length;
+const fleetUsed=()=>S.trucks.length+S.vans.length+((S.liefer2||[]).length);
 // Feste Bauplätze im Viertel: links der Laden, rechts die Boutique. Vorher lagen beide
 // auf demselben Punkt, sie standen übereinander und man musste die Mitte erraten.
 // Liegt das Haus selbst auf dem Viertel, rücken die Plätze weiter nach außen. Sonst
@@ -552,7 +552,8 @@ function cityStep(){
     for(const v of S.vans){ if(!v.cargo||!v.pos) continue; const d=dist(r,v.pos)*0.7; if(d<bd){bd=d;best={k:"van",o:v,p:v.pos};} }
     for(const dc of (S.decoys||[])){ const d=dist(r,dc)*0.45; if(d<bd){bd=d;best={k:"decoy",o:dc,p:dc};} }
     // Der Lieferwagen mit Bändern ist das beste Ziel: wenige Stücke, hoher Wert
-    if(S.liefer&&S.liefer.cargo&&S.liefer.state!=="laden"){ const d=dist(r,S.liefer.pos)*0.5; if(d<bd){bd=d;best={k:"liefer",o:S.liefer,p:S.liefer.pos};} }
+    for(const lw of lieferWagen()){ if(!lw.cargo||lw.state==="laden") continue;
+      const d=dist(r,lw.pos)*0.5; if(d<bd){bd=d;best={k:"liefer",o:lw,p:lw.pos};} }
     // Die Expedition trägt das Meteoritengestein. Jede Crew weiß das.
     if(S.mw&&S.mw.exp){ const d=dist(r,S.mw.exp.pos)*0.45; if(d<bd){bd=d;best={k:"exp",o:S.mw.exp,p:S.mw.exp.pos};} }
     for(const po of S.posts){ const d=dist(r,po); if(d<bd){bd=d;best={k:"post",o:po,p:po};} }
@@ -788,11 +789,21 @@ function hausSorgen(h){ const W=h.werk(); let n=0;
 function lieferWeg(ort){ const rx=ROADS_X.reduce((a,b)=>Math.abs(b-ort.x)<Math.abs(a-ort.x)?b:a);
   // erst auf der Querstraße nach oben, dann auf einer Längsstraße hoch, erst am Ende ins Viertel
   return [{x:HQ.x,y:HQ.y},{x:HQ.x,y:ROADY[0]},{x:rx,y:ROADY[0]},{x:rx,y:ort.y},{x:ort.x,y:ort.y}]; }
-const LIEFER_LADUNG=10;
+// Ladung pro Fahrt. Die Forschung für größere Transporter gilt auch für ihn, sonst ist sie ein
+// Versprechen, das sie nicht hält. Gemessen waren es vorher 28 Bänder per minute an der
+// Hauptstraße und 16 am oberen Kartenrand, eine Endmontage verbaut 15.
+const LIEFER_LADUNG=()=>RES().laster?16:10;
+const LIEFER_PREIS=2500;
+// Alle Lieferwagen. Der erste gehört zum Haus, jeder weitere kostet einen Platz im Fuhrpark.
+const lieferWagen=()=>[S.liefer].concat(S.liefer2||[]).filter(Boolean);
+function lieferKaufen(){ if(!S.uhr||S.money<LIEFER_PREIS||fleetUsed()>=S.fleet) return;
+  S.money-=LIEFER_PREIS; S.liefer2=S.liefer2||[];
+  S.liefer2.push({pos:{x:HQ.x,y:HQ.y}, d:8, cargo:0, state:"laden", weg:lieferWeg(S.uhr.ort)}); }
 // Er holt Bänder aus Sohle und bringt sie nach oben. Unterwegs ist er das beste Ziel für die Banden.
-function lieferStep(){ const v=S.liefer; if(!v||!S.uhr) return; const Lp=pathLen(v.weg);
+function lieferStep(){ if(!S.uhr) return; for(const v of lieferWagen()) einLieferStep(v); }
+function einLieferStep(v){ const Lp=pathLen(v.weg);
   if(v.state==="laden"){ v.pos={x:HQ.x,y:HQ.y}; v.d=0;
-    const n=Math.min(LIEFER_LADUNG, S.parts.band||0, S.uhr.lagerCap-S.uhr.lager.band);
+    const n=Math.min(LIEFER_LADUNG(), S.parts.band||0, S.uhr.lagerCap-S.uhr.lager.band);
     if(n<=0) return; S.parts.band-=n; v.cargo=n; v.state="hoch"; return; }
   if(v.state==="hoch"){ v.d+=1.1*DT; if(v.d>=Lp){ v.d=Lp;
       const n=Math.min(v.cargo, S.uhr.lagerCap-S.uhr.lager.band);
@@ -1688,6 +1699,10 @@ function fleetSheet(){ reopen=fleetSheet;
   const vok=fleetUsed()<S.fleet&&S.money>=150;
   h+=`<div class="frow"><div><b>Supply van</b><span>Brings gear to posts outside the green circle</span></div>
     <button data-vr="1" ${S.vans.length?"":"disabled"}>−</button><div class="cnt">${S.vans.length}</div><button data-va="1" ${vok?"":"disabled"} title="150">+</button></div>`;
+  if(S.uhr){ const lok=S.money>=LIEFER_PREIS&&fleetUsed()<S.fleet;
+    h+=`<div class="frow"><div><b>Van for straps</b><span>Brings ${LIEFER_LADUNG()} straps up per trip. Every extra one takes a slot in your fleet.</span></div>
+      <button data-lr="1" ${(S.liefer2||[]).length?"":"disabled"}>−</button><div class="cnt">${lieferWagen().length}</div>
+      <button data-la="1" ${lok?"":"disabled"} title="${LIEFER_PREIS}">+</button></div>`; }
   const fok=S.money>=fc;
   h+=`<div class="opt ${fok?"":"off"}" ${fok?'data-fl="1"':""}><div><b>Make fleet bigger</b><span>Room for one more truck.</span></div><em>${fc}</em></div>`;
   const lc=Math.round(300*Math.pow(1.35,Math.max(0,S.lagerCap-40)/20)), lok=S.money>=lc;
@@ -1698,6 +1713,9 @@ function fleetSheet(){ reopen=fleetSheet;
   openSheet(h,()=>{
     document.querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{ removeTruck(S.sources[+b.dataset.rm]); fleetSheet(); });
     document.querySelectorAll("[data-ad]").forEach(b=>b.onclick=()=>{ const src=S.sources[+b.dataset.ad], c=src.trucks?90:routeCost(src); if(S.money<c) return; S.money-=c; addTruck(src); fleetSheet(); });
+    const la=document.querySelector("[data-la]"); if(la) la.onclick=()=>{ lieferKaufen(); fleetSheet(); };
+    const lr=document.querySelector("[data-lr]"); if(lr) lr.onclick=()=>{ const w=(S.liefer2||[]).pop();
+      if(w){ S.parts.band=(S.parts.band||0)+(w.cargo||0); S.money+=Math.round(LIEFER_PREIS*0.4); } fleetSheet(); };
     const f=document.querySelector("[data-fl]"); if(f) f.onclick=()=>{ S.money-=fc; S.fleet++; fleetSheet(); };
     const al=document.querySelector("[data-al]"); if(al) al.onclick=()=>{ S.money-=ac; S.ammoCap+=40; fleetSheet(); };
     const va=document.querySelector("[data-va]"); if(va) va.onclick=()=>{ if(S.money<150) return; S.money-=150; S.vans.push({state:"home",cargo:0,pos:{x:HQ.x,y:HQ.y},d:0}); fleetSheet(); };
@@ -2219,7 +2237,7 @@ function drawCity(){
     c.fillStyle="#C98A1B"; c.beginPath(); c.roundRect(x-T*0.2,y-T*0.12,T*0.4,T*0.24,4); c.fill();
     if(v.cargo){ c.strokeStyle="#FBF8F2"; c.lineWidth=1.6; c.beginPath(); c.arc(x,y,T*0.07,0,7); c.moveTo(x-T*0.07,y); c.lineTo(x+T*0.07,y); c.stroke(); } });
   // Der gepanzerte Lieferwagen zwischen Sohle und der Manufaktur
-  if(S.liefer&&S.liefer.state!=="laden"){ const v=S.liefer, lp=weiter(v.weg,v.d,v.state==="hoch"?1.1:-1.4), x=X(lp.x), y=X(lp.y);
+  if(S.uhr) for(const v of lieferWagen()){ if(v.state==="laden") continue; const lp=weiter(v.weg,v.d,v.state==="hoch"?1.1:-1.4), x=X(lp.x), y=X(lp.y);
     c.fillStyle="rgba(0,0,0,.3)"; c.fillRect(x-T*0.26+3,y-T*0.16+4,T*0.52,T*0.32);
     c.fillStyle="#4E4A42"; c.beginPath(); c.roundRect(x-T*0.26,y-T*0.16,T*0.52,T*0.32,4); c.fill();
     c.fillStyle="#2B2A26"; c.fillRect(x-T*0.26,y-T*0.04,T*0.52,T*0.06);
