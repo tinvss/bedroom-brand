@@ -2450,24 +2450,24 @@ function hud(){
   $("tStadt").innerHTML="City"+(S.raiders.length?`<i>${S.raiders.length}</i>`:"");
   const home=S.districts[0];
   if(aktivesWerk().name==="uhren"){ const U=S.uhr, B=U.boutique;
-    $("market").innerHTML=Object.entries(UHREN).map(([k,M])=>{
+    setzeWennNeu($("market"),Object.entries(UHREN).map(([k,M])=>{
       if(!U.open[k]) return `<div class="m" data-uk="${k}"><b>${M.n}</b><div class="p">${M.p0}</div><div class="h">not designed yet</div>
         <button ${S.money>=M.unlock?"":"disabled"} data-uh="${k}">Design · ${M.unlock}</button></div>`;
       const lager=(U.fin[k]||0)+(U.fin[k+"_s"]||0);
       return `<div class="m" data-uk="${k}"><b>${M.n}</b><div class="p">${uhrPreis(k)}</div><div class="h">${Math.round(uhrPreis(k)/M.p0*100)}% in the boutique</div>
-        <div class="h">${perMin("uhr_"+k)} per minute${lager?", "+lager+" in storage":""}</div></div>`; }).join("");
+        <div class="h">${perMin("uhr_"+k)} per minute${lager?", "+lager+" in storage":""}</div></div>`; }).join(""));
     document.querySelectorAll("[data-uh]").forEach(b=>b.onclick=e=>{ e.stopPropagation(); const k=b.dataset.uh; if(S.money<UHREN[k].unlock) return; S.money-=UHREN[k].unlock; U.open[k]=true; uhrSheet(k); });
     document.querySelectorAll("#market [data-uk]").forEach(el=>el.onclick=()=>uhrSheet(el.dataset.uk));
     { const mU=stockung(), tU = mU ? tipKurz(mU.t,true) : tipKurz(`Someone buys in the boutique about every 14 seconds. Every watch sold pushes down the price of its model, and it recovers slowly. A certificate earns a third more.`);
       if($("tip").dataset.h!==tU){ $("tip").dataset.h=tU; $("tip").innerHTML=tU; $("tip").classList.remove("auf");
         const gb=$("tipGo"); if(gb&&mU) gb.onclick=e=>{ e.stopPropagation(); mU.go(); }; } }
     alarmCheck(); regionCard(); return; }
-  $("market").innerHTML=Object.entries(MODELS).map(([k,M])=>{
+  setzeWennNeu($("market"),Object.entries(MODELS).map(([k,M])=>{
     if(!S.open[k]) return `<div class="m" data-mk="${k}"><b>${shoeIcon(k)}${M.n}</b><div class="p">${M.p0}</div><div class="h">fresh market</div>
       <button ${S.factory&&S.money>=M.unlock?"":"disabled"} data-un="${k}">Design · ${M.unlock}</button></div>`;
     const shops=S.districts.filter(d=>d.shop), avg=Math.round(shops.reduce((a,d)=>a+priceIn(d,k),0)/shops.length);
     const nf=S.fakes.filter(f=>f.m===k).length;
-    return `<div class="m" data-mk="${k}"><b>${shoeIcon(k)}${M.n}</b><div class="p">${avg}</div><div class="h">${Math.round(avg/M.p0*100)+"% in "+shops.length+" "+(shops.length>1?"shops":"shop")}</div><div class="h">${perMin("sold_"+k)} per minute${S.fin[k]+(S.fin[k+"_s"]||0)>8?", "+(S.fin[k]+(S.fin[k+"_s"]||0))+" waiting":""}</div>${nf?`<div class="h" style="color:var(--bad);font-weight:700">${nf} counterfeit stall${nf>1?"s":""}</div>`:""}</div></div>`; }).join("");
+    return `<div class="m" data-mk="${k}"><b>${shoeIcon(k)}${M.n}</b><div class="p">${avg}</div><div class="h">${Math.round(avg/M.p0*100)+"% in "+shops.length+" "+(shops.length>1?"shops":"shop")}</div><div class="h">${perMin("sold_"+k)} per minute${S.fin[k]+(S.fin[k+"_s"]||0)>8?", "+(S.fin[k]+(S.fin[k+"_s"]||0))+" waiting":""}</div>${nf?`<div class="h" style="color:var(--bad);font-weight:700">${nf} counterfeit stall${nf>1?"s":""}</div>`:""}</div></div>`; }).join(""));
   document.querySelectorAll("[data-un]").forEach(b=>b.onclick=e=>{ e.stopPropagation(); const k=b.dataset.un; if(S.money<MODELS[k].unlock) return;
     S.money-=MODELS[k].unlock; S.open[k]=true; modellSheet(k); });
   document.querySelectorAll("#market [data-mk]").forEach(el=>el.onclick=()=>modellSheet(el.dataset.mk));
@@ -2709,14 +2709,14 @@ if(typeof window!=="undefined" && typeof requestAnimationFrame!=="undefined"){
     cityTap((e.clientX-r.left)/T,y); });
   addEventListener("resize",()=>{ if(view==="stadt") size(); });
   pruefeSpeicher();
-  addEventListener("pointerdown",()=>{ pressing=true; if(speicherGeht===false) speicherFreigeben(); },true); addEventListener("pointerup",()=>setTimeout(()=>pressing=false,30),true);
+  addEventListener("pointerdown",()=>{ pressing=true; if(speicherGeht===false) speicherFreigeben(); },true); const loslassen=()=>setTimeout(()=>pressing=false,120); addEventListener("pointerup",loslassen,true); addEventListener("pointercancel",loslassen,true);
   let acc=0,last=performance.now(),ui=0,saveT=0;
   (function loop(now){ const dt=Math.min(0.25,(now-last)/1000); last=now;
     if(!paused){ acc+=dt; while(acc>=DT){ step(); acc-=DT; } }
     // Zeichenuhr: Spielzeit plus der angefangene Rechenschritt. Damit läuft alles weich,
     // und Vergleiche mit S.t (Treffer, Blitze) stimmen weiter.
     animT=S.t+(paused?0:acc);
-    if(view==="stadt") drawCity(); else drawTower(dt); tutUpdate(); sheetAuffrischen(dt); ui+=dt; if(ui>0.2&&!pressing){ ui=0; if(view==="turm") renderHand(); hud(); }
+    if(view==="stadt") drawCity(); else drawTower(dt); if(!pressing){ tutUpdate(); sheetAuffrischen(dt); } ui+=dt; if(ui>0.2&&!pressing){ ui=0; if(view==="turm") renderHand(); hud(); }
     saveT+=dt; if(saveT>2){ saveT=0; saveGame(); }
     requestAnimationFrame(loop); })(last);
   addEventListener("pagehide",saveGame); document.addEventListener("visibilitychange",()=>{ if(document.hidden) saveGame(); });
