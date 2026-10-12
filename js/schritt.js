@@ -5,6 +5,7 @@ let towerTick=0;
 const taktPhase=()=>Math.max(0,Math.min(1,towerTick/TURM_TAKT));
 function step(){
   if(paused||!S) return;
+  if(S.k3){ S.t+=DT; return; }   // Kapitel 3: Sohle und die Manufaktur sind verkauft, sie laufen nicht mehr
   S.t+=DT;
   towerTick+=DT; if(towerTick>=TURM_TAKT){ towerTick=0; towerStep(); if(S.uhr) werkStep(uhrWerk());   // Kapitel 2 läuft daneben
     // Lohn

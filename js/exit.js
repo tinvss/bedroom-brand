@@ -29,6 +29,7 @@ function regionCard(){ const el=$("region"); if(!el||!el.dataset) return; let h;
       h=`${TX.the_masterpiece_2}${da}${TX.of_4_ingredients_workshop}${mwStufe()}${TX.of_3_tap_to}`; }
     else if(!M&&RES2().tourbillon&&werkstattKaufbar())
       h=`${TX.workshop_for_one_off_2}`;
+    else if(k3AngebotOffen()) h=`${TX.k3_karte_angebot}`;
     else h="";
   }
   else if(S.fw&&S.fw.state==="live"){ const left=Math.max(0,FW_TIME-(S.t-S.fw.t0)), mm=Math.floor(left/60), ss=String(Math.floor(left%60)).padStart(2,"0");
@@ -40,6 +41,7 @@ function regionCard(){ const el=$("region"); if(!el||!el.dataset) return; let h;
     h=`<div class="rg"><b>${lockSvgG()}${TX.restricted_area_finish}${FW_FORSCHUNGEN}${TX.research_steps}${n}${TX.of_2}${TECH.length}${TX.then_fashion_week_opens}`; }
   if(el.dataset.h!==h){ el.dataset.h=h; el.innerHTML=h; }
   el.onclick=()=>{ if(S.exited&&!S.uhr) return grundstueckSheet();
+    if(k3AngebotOffen()&&!(S.mw&&S.mw.phase!=="fertig")) return k3Angebot();
     if(S.exited&&S.uhr){ if(S.mw) return meisterSheet();
       if(RES2().tourbillon&&werkstattKaufbar()) return zeigWerkstattPlatz(); return; }
     if(S.fw&&S.fw.state==="won"&&!S.exited) exitOffer(); else if(!S.exited&&fwOffen()&&(!S.fw||(S.fw.state!=="live"&&S.t>=(S.fw.retry||0)))) fwStart(); }; }
@@ -120,7 +122,9 @@ function zoneTap(){ const st=zoneState();
   if(S.exited&&!S.uhr) return grundstueckSheet();
   if(st==="ready") return fwSheet();
   if(st==="offer") return exitOffer();
-  else if(st==="open") openSheet(`${TX.chapter_2_your_watch}`);
-  else if(st==="locked") openSheet(`${TX.restricted_area_behind_the}${FW_FORSCHUNGEN}${TX.research_steps_2}${resFertig()}${TX.of_them_are_done}${testModus()?`${TX.for_testing_open_chapter}`:""}`,
-    ()=>{ const b=document.querySelector("[data-test]"); if(b) b.onclick=()=>{ testSprungKapitel2(); }; });
+  else if(st==="open") openSheet(`${TX.chapter_2_your_watch}${testModus()?TX.k3_test_knopf:""}`,
+    ()=>{ const b=document.querySelector("[data-test3]"); if(b) b.onclick=()=>testSprungKapitel3(); });
+  else if(st==="locked") openSheet(`${TX.restricted_area_behind_the}${FW_FORSCHUNGEN}${TX.research_steps_2}${resFertig()}${TX.of_them_are_done}${testModus()?`${TX.for_testing_open_chapter}`+TX.k3_test_knopf:""}`,
+    ()=>{ const b=document.querySelector("[data-test]"); if(b) b.onclick=()=>{ testSprungKapitel2(); };
+      const b3=document.querySelector("[data-test3]"); if(b3) b3.onclick=()=>testSprungKapitel3(); });
 }

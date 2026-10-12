@@ -14,3 +14,6 @@ Hier liegt der fertige Stand zum Testen. Kein Build-Schritt, die Seiten laufen d
 
 Nach einer Änderung an `js/`, `text/` oder `css/` die Zahl hinter `?v=` in beiden HTML-Dateien hochzählen,
 sonst zeigen Handys eine Weile noch die alte Fassung.
+
+Zum Testen: `?test` in der Adresse zeigt Testknöpfe, `?test=k3` springt direkt zum Angebot für Kapitel 3.
+Testspiele werden getrennt gespeichert und überschreiben den echten Spielstand nicht.

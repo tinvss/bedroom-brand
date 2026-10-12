@@ -93,6 +93,7 @@ function overview(){
 // zehnmal pro Sekunde ersetzt, reißt dem Finger das Ziel unter der Kuppe weg.
 function setzeWennNeu(el,html){ if(!el||el.dataset.h===html) return; el.dataset.h=html; el.innerHTML=html; }
 function hud(){
+  if(S.k3) return k3Hud();
   $("money").innerHTML=Math.round(S.money)+`<u>${S.money<0?TX.debt:TX.cash}</u>`; $("money").style.color=S.money<0?"var(--bad)":"";
   $("pairs").innerHTML=S.sold+TX.sold_2;
   $("ammo").innerHTML=S.ammo+`${TX.gear_6}${S.ammoCap}</u>`;
@@ -307,6 +308,7 @@ function switchView(v){ view=v; if(v==="stadt"&&S&&S.alarmPause){ S.alarmPause=f
 function setPauseUI(){ $("pause").textContent=paused?TX.continue_2:"Pause"; $("pause").classList.toggle("on",paused); document.body.classList.toggle("paused",paused); }
 function intro(){ paused=true;
   // Wer wiederkommt, spielt weiter. Kein Fenster mit "Neues Spiel" direkt daneben, das kostet sonst eine ganze Partie.
-  if(hasSave()&&loadGame()){ $("overlay").innerHTML=""; paused=false; setPauseUI(); return; }
+  if(hasSave()&&loadGame()){ $("overlay").innerHTML=""; paused=false; setPauseUI();
+    if(S.k3){ k3Modus(true); if(!S.k3.seen.ankunft) k3Ankunft(); } return; }
   $("overlay").innerHTML=`${TX.sohle_a_bedroom_ten}`;
   $("go").onclick=()=>{ $("overlay").innerHTML=""; paused=false; setPauseUI(); tutOn=true; tutI=0; }; }

@@ -1,6 +1,6 @@
 // Speichern im Browser
 /* ================= Speichern ================= */
-const SAVE_KEY=TX.sohle_save_v1_en;
+const SAVE_KEY=TX.sohle_save_v1_en+(testModus()?".test":"");
 // In eingebetteten Seiten sperren Safari und die App den Speicher, bis der Spieler die Seite berührt hat.
 // Deshalb: erst prüfen, bei Bedarf Zugriff anfordern, und ehrlich sagen, wenn es nicht geht.
 let speicherGeht=null;
@@ -12,7 +12,7 @@ async function speicherFreigeben(){ if(speicherGeht) return true;
 // Wo der Browser den dauerhaften Speicher sperrt (eingebettete Seiten auf dem iPhone),
 // bleibt der Stand wenigstens für diese Sitzung erhalten: sessionStorage überlebt das Neuladen,
 // window.name überlebt es auch dann, wenn selbst das gesperrt ist.
-const NAME_KOPF=TX.sohle_save_en;
+const NAME_KOPF=TX.sohle_save_en+(testModus()?"test:":"");
 function schreibeStand(text){ let wohin=[];
   try{ localStorage.setItem(SAVE_KEY,text); wohin.push("dauerhaft"); speicherGeht=true; }catch(e){ speicherGeht=false; }
   try{ sessionStorage.setItem(SAVE_KEY,text); wohin.push("Sitzung"); }catch(e){}

@@ -111,3 +111,27 @@ canvas{display:block; width:100%; border-radius:12px}
 #region .fwb{display:flex; gap:8px; margin-top:8px} #region .fwb div{flex:1; font-size:12px; color:var(--ink)}
 #region .fwb i{display:block; height:6px; background:var(--line); border-radius:4px; overflow:hidden; margin-top:3px} #region .fwb i u{display:block; height:100%}
 .paused canvas{filter:grayscale(.6) opacity(.8)}
+/* Kapitel 3: Nova Harbor */
+body.k3 .tabs, body.k3 #resbar, body.k3 #stock, body.k3 #turmView, body.k3 #stadtView, body.k3 #market, body.k3 #alarm{display:none!important}
+#k3c{touch-action:pan-y; background:#1B1A17}
+#k3karte{display:block; width:100%; height:44px; margin-top:8px; border-radius:9px; touch-action:none; cursor:pointer}
+#k3rivalen{display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin-top:8px}
+#k3rivalen button{appearance:none; font:inherit; display:flex; flex-direction:column; align-items:center; gap:3px; padding:8px 4px; min-height:44px; border:1px solid var(--line); border-radius:10px; background:var(--card); color:var(--ink); cursor:pointer}
+#k3rivalen i, .k3wem i{display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:50%; font-style:normal; font-weight:800; font-size:13px; flex:none}
+#k3rivalen b{font-size:12px} #k3rivalen span{font-size:11.5px; color:var(--soft); font-variant-numeric:tabular-nums}
+.k3wem{display:flex; align-items:center; gap:10px; border:1px solid var(--line); border-radius:11px; padding:10px 12px; margin:8px 0; background:var(--bg)}
+.k3wem i{width:34px; height:34px; font-size:16px} .k3wem b{display:block} .k3wem span{font-size:12.5px; color:var(--soft)}
+.k3wem.frei i{background:#FBF8F2; color:#B8432F; border:2px solid #B8432F}
+.k3zeile{display:flex; justify-content:space-between; font-size:14px; padding:4px 0; border-bottom:1px solid var(--line)}
+.box .k3gross{font-size:34px; font-weight:800; color:var(--money); margin:12px 0 6px; font-variant-numeric:tabular-nums}
+.over.k3an{align-items:flex-end; background:rgba(20,18,14,.2)}
+#k3intro{position:fixed; inset:0; z-index:40; background:#0B0B0D; color:#FBF8F2; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:24px; opacity:0; transition:opacity .8s; cursor:pointer}
+#k3intro.an{opacity:1}
+#k3intro .z{opacity:0; transform:translateY(8px); transition:opacity .7s, transform .7s; font-size:18px; margin:6px 0}
+#k3intro .z.an{opacity:1; transform:none}
+#k3intro .zahl{font-size:46px; font-weight:800; color:#F2B441; margin-top:22px; font-variant-numeric:tabular-nums}
+#k3intro .klein{font-size:13px; color:#ABA394; letter-spacing:.08em}
+#k3intro .kap{font-size:13px; letter-spacing:.35em; color:#ABA394}
+#k3intro .titel{font-size:42px; font-weight:800}
+#k3intro .weiter{position:absolute; bottom:calc(22px + env(safe-area-inset-bottom,0px)); font-size:12px; color:#7A7366}
+body.k3.paused canvas{filter:saturate(.55)}

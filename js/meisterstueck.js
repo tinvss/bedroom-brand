@@ -125,7 +125,7 @@ function meisterFertig(){ paused=true; setPauseUI();
   $("overlay").innerHTML=`<div class="over"><div class="box win">${conf}${TX.the_masterpiece_it_s}${S.mw.zurueckgeholt?TX.your_first_employee_the:TX.your_very_first_employee}.</p>
     <p style="font-size:26px;font-weight:800;color:var(--money);margin:6px 0 10px">${preis.toLocaleString(TX.en_us)}</p>
     <p style="font-size:13px">${S.sold}${TX.pairs_sold}${(S.uhr.boutique.verkauft||0)+(S.uhr.boutiquen||[]).reduce((a,B)=>a+(B.verkauft||0),0)}${TX.watches_sold}${S.mw.kaputt?S.mw.kaputt+TX.times_lost:""}${Math.round(S.t/60)}${TX.minutes_continue}`;
-  const b=$("mwok"); if(b) b.onclick=()=>{ $("overlay").innerHTML=""; paused=false; setPauseUI(); };
+  const b=$("mwok"); if(b) b.onclick=()=>{ $("overlay").innerHTML=""; paused=false; setPauseUI(); setTimeout(k3Angebot,700); };   // danach kommt das Angebot für Kapitel 3
 }
 function werkstattWeg(){ if(!S.uhr||!S.mw||S.mw.phase!=="fertig") return;
   S.uhr.floors.forEach(F=>F.slots.forEach((m,i)=>{ if(m&&m.t==="werkstatt") F.slots[i]=null; })); }
