@@ -13,18 +13,19 @@ const K3_RIVALEN={
 const K3_DU={farbe:"#E4572E", schrift:"#FFFFFF"};
 const k3Farbe=o=>o==="du"?K3_DU.farbe:o&&K3_RIVALEN[o]?K3_RIVALEN[o].farbe:"#B9B2A4";
 
-// Was eine Firma kann. Ab der nächsten Stufe kaufbar: Geldmaschine oder Waffe.
+// Was eine Firma kann: Geldmaschine oder Waffe. rate ist der Anteil ihres Werts, den sie pro Minute bringt,
+// bevor der Hype ihn vervielfacht. Waffen bringen wenig, dafür können sie etwas.
 const K3_TYPEN={
- imbiss:  {n:TX.k3_typ_imbiss,   d:TX.k3_typ_imbiss_d},
- parkhaus:{n:TX.k3_typ_parkhaus, d:TX.k3_typ_parkhaus_d},
- hotel:   {n:TX.k3_typ_hotel,    d:TX.k3_typ_hotel_d},
- sneaker: {n:TX.k3_typ_sneaker,  d:TX.k3_typ_sneaker_d},
- kanzlei: {n:TX.k3_typ_kanzlei,  d:TX.k3_typ_kanzlei_d, waffe:true},
- zeitung: {n:TX.k3_typ_zeitung,  d:TX.k3_typ_zeitung_d, waffe:true},
- bank:    {n:TX.k3_typ_bank,     d:TX.k3_typ_bank_d,    waffe:true},
- werbung: {n:TX.k3_typ_werbung,  d:TX.k3_typ_werbung_d, waffe:true},
- tech:    {n:TX.k3_typ_tech,     d:TX.k3_typ_tech_d},
- turm:    {n:TX.k3_typ_turm,     d:TX.k3_typ_turm_d}};
+ imbiss:  {rate:0.6, n:TX.k3_typ_imbiss,   d:TX.k3_typ_imbiss_d},
+ parkhaus:{rate:0.42, n:TX.k3_typ_parkhaus, d:TX.k3_typ_parkhaus_d},
+ hotel:   {rate:0.55, n:TX.k3_typ_hotel,    d:TX.k3_typ_hotel_d},
+ sneaker: {rate:0.65, n:TX.k3_typ_sneaker,  d:TX.k3_typ_sneaker_d},
+ kanzlei: {rate:0.15, n:TX.k3_typ_kanzlei,  d:TX.k3_typ_kanzlei_d, waffe:true},
+ zeitung: {rate:0.15, n:TX.k3_typ_zeitung,  d:TX.k3_typ_zeitung_d, waffe:true},
+ bank:    {rate:0.12, n:TX.k3_typ_bank,     d:TX.k3_typ_bank_d,    waffe:true},
+ werbung: {rate:0.15, n:TX.k3_typ_werbung,  d:TX.k3_typ_werbung_d, waffe:true},
+ tech:    {rate:0.8, n:TX.k3_typ_tech,     d:TX.k3_typ_tech_d},
+ turm:    {rate:0.4, n:TX.k3_typ_turm,     d:TX.k3_typ_turm_d}};
 
 // Viertel von links nach rechts. Zwischen Bankenviertel und Insel liegt der Fluss mit der Brücke.
 const K3_VIERTEL=[

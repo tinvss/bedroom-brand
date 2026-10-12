@@ -38,7 +38,7 @@ function k3Uebergang(z){ $("overlay").innerHTML=""; paused=true; setPauseUI();
 
 function k3Start(z){ if(S.k3) return;
   S.k3alt={money:Math.round(S.money), t:Math.round(S.t)};
-  S.k3={t0:S.t, budget:z, cam:K3_WW, g:{}, seen:{}};
+  S.k3={t0:S.t, budget:z, cam:K3_WW, g:{}, seen:{}, hype:50, schuld:0};
   K3_GEB.forEach(b=>S.k3.g[b.id]={o:b.o, wert:Math.max(1000,Math.round(z*b.f/1000)*1000)});
   S.money=z; $("sheet").innerHTML=""; reopen=null;
   k3Modus(true); k3Kamera(K3_WW); saveGame(); }
@@ -48,7 +48,7 @@ function k3Ankunft(){ paused=false; setPauseUI(); k3Kamera(K3_WW); k3Fahre(0,6.5
   setTimeout(()=>{ if(!S.k3||S.k3.seen.ankunft) return; S.k3.seen.ankunft=true;
     $("overlay").innerHTML=`<div class="over k3an"><div class="box"><h2>${TX.k3_ankunft_titel}</h2><p>${TX.k3_ankunft_text(k3Fmt(S.k3.budget),k3Fmt(S.k3.g.goldhorn.wert))}</p>
       <p>${TX.k3_ankunft_rivalen}</p><button id="k3los">${TX.k3_los}</button></div></div>`;
-    $("k3los").onclick=()=>{ $("overlay").innerHTML=""; }; },6900); }
+    $("k3los").onclick=()=>{ $("overlay").innerHTML=""; k3Tutorial(); }; },6900); }
 
 // Testsprung: Kapitel 1 und 2 überspringen, direkt zum Angebot. Nur mit ?test in der Adresse.
 function testSprungKapitel3(){ if(S.k3) return; if(!S.uhr){ testSprungKapitel2(); kaufeGrundstueck(GRUNDSTUECKE[0]); }

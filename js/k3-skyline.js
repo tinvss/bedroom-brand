@@ -142,17 +142,27 @@ function k3LogoSvg(o,px){ const R=o==="du"?K3_DU:K3_RIVALEN[o]; if(!R) return ""
   else if(o==="hammer") g=`<g transform="rotate(-34)" fill="#fff"><rect x="-1.7" y="-4.5" width="3.4" height="16"/><rect x="-8" y="-10" width="16" height="6"/></g>`;
   return `<svg width="${px}" height="${px}" viewBox="-20 -20 40 40" style="flex:none;display:block"><circle r="18.5" fill="${R.farbe}" stroke="rgba(255,255,255,.8)" stroke-width="1.5"/>${g}</svg>`; }
 // Wem ein Gebäude gehört, sieht man oben drauf: Schild auf dem Dach, bei Türmen eine Plakette an der Fassade
-function k3Markierung(c,b,o){ const top=K3_GY-b.h, gross=b.h>=400;
+function k3Markierung(c,b,o){ const top=K3_GY-b.h, gross=b.h>=400, G=S.k3.g[b.id];
   if(!o){ const bw=Math.min(b.w*0.9,150), x=b.x+(b.w-bw)/2, y=top+16;
     c.fillStyle="#FBF8F2"; c.fillRect(x,y,bw,26); c.strokeStyle="#B8432F"; c.lineWidth=2.5; c.strokeRect(x+2,y+2,bw-4,22);
     c.font="800 10px Archivo, sans-serif"; const fs=Math.min(13,10*(bw-12)/c.measureText(TX.k3_zu_verkaufen).width);
     c.fillStyle="#B8432F"; c.font=`800 ${fs}px Archivo, sans-serif`; c.textAlign="center"; c.fillText(TX.k3_zu_verkaufen,x+bw/2,y+13+fs*0.38); return; }
-  if(gross){ const cx=b.x+b.w/2, cy=top+b.h*0.08+26, stufen=b.stil==="artdeco"||b.stil==="goldhorn";
-    if(!stufen){ c.fillStyle=k3Farbe(o); c.fillRect(b.x+b.w*0.02,top-4,b.w*0.96,5); } k3Logo(c,o,cx,cy,24); return; }
-  const tank=b.stil==="backstein"||b.stil==="brown", cx=b.x+(tank?b.w*0.3:b.w/2), y=top-(b.stil==="klassik"?8:4), pw=56, ph=38;
-  c.fillStyle="#2F2B27"; c.fillRect(cx-pw*0.35,y-14,3,14); c.fillRect(cx+pw*0.35-3,y-14,3,14);
-  c.fillStyle=k3Farbe(o); c.fillRect(cx-pw/2,y-14-ph,pw,ph); c.fillStyle="rgba(0,0,0,.18)"; c.fillRect(cx-pw/2,y-18,pw,4);
-  k3Logo(c,o,cx,y-14-ph/2,13); }
+  const tank=b.stil==="backstein"||b.stil==="brown", stufen=b.stil==="artdeco"||b.stil==="goldhorn";
+  const cx=gross?b.x+b.w/2:b.x+(tank?b.w*0.3:b.w/2), y=top-(b.stil==="klassik"?8:4), cy=gross?top+b.h*0.08+26:y-33;
+  // Frisch gekauft: das Logo springt aufs Dach, ein Ring in seiner Farbe läuft nach außen
+  const p=G.kaufT!==undefined?(animT-G.kaufT)/1.4:2;
+  if(p>=0&&p<1){ c.strokeStyle=k3Farbe(o); c.globalAlpha=1-p; c.lineWidth=6; c.beginPath(); c.arc(cx,cy,30+p*150,0,7); c.stroke(); c.globalAlpha=1; }
+  const sk=p<0||p>=1?1:p<0.25?p/0.25*1.5:1+0.5*(1-(p-0.25)/0.75)*Math.cos((p-0.25)*14);
+  c.save(); c.translate(cx,cy); c.scale(sk,sk); c.translate(-cx,-cy);
+  if(gross){ if(!stufen){ c.fillStyle=k3Farbe(o); c.fillRect(b.x+b.w*0.02,top-4,b.w*0.96,5); } k3Logo(c,o,cx,cy,24); }
+  else { const pw=56, ph=38;
+    c.fillStyle="#2F2B27"; c.fillRect(cx-pw*0.35,y-14,3,14); c.fillRect(cx+pw*0.35-3,y-14,3,14);
+    c.fillStyle=k3Farbe(o); c.fillRect(cx-pw/2,y-14-ph,pw,ph); c.fillStyle="rgba(0,0,0,.18)"; c.fillRect(cx-pw/2,y-18,pw,4);
+    k3Logo(c,o,cx,cy,13); }
+  c.restore();
+  // Skandal: ein roter Aufkleber quer über dem Logo
+  if(k3Skandal(o)){ c.save(); c.translate(cx,cy); c.rotate(-0.25); c.fillStyle="#D9372B"; c.fillRect(-46,-11,92,22);
+    c.fillStyle="#fff"; c.font="800 14px Archivo, sans-serif"; c.textAlign="center"; c.fillText(TX.k3_skandal.toUpperCase(),0,5); c.restore(); } }
 
 // Lebendiges, das nicht ins vorgezeichnete Bild passt: Neon, Bildschirme, Blinklichter
 function k3Leben(c,b,t,licht){ const top=K3_GY-b.h;
@@ -206,6 +216,12 @@ function drawK3(dt){ if(!k3ctx||!S||!S.k3) return; k3Groesse();
     if(licht>0){ c.globalAlpha=licht; c.drawImage(B.licht,dx,dy,b.w+K3_RAND*2,b.h+B.o); c.globalAlpha=1; }
     k3Leben(c,b,t,licht); k3Markierung(c,b,S.k3.g[b.id].o);
     if(S.k3.sel===b.id&&$("sheet").innerHTML){ c.strokeStyle=`rgba(255,255,255,${0.6+0.4*Math.sin(t*6)})`; c.lineWidth=4; c.setLineDash([10,8]); c.strokeRect(b.x-6,K3_GY-b.h-60,b.w+12,b.h+60); c.setLineDash([]); } }
+  // Zahlen über den Dächern: steigen auf und verblassen
+  k3Pops=k3Pops.filter(q=>animT-q.t0<1.8&&animT>=q.t0-0.1);
+  c.textAlign="center"; c.font="800 24px Archivo, sans-serif"; c.lineJoin="round";
+  for(const q of k3Pops){ const a=(animT-q.t0)/1.8; if(q.x<cam-100||q.x>cam+sw+100) continue; c.globalAlpha=Math.min(1,(1-a)*1.6);
+    c.lineWidth=5; c.strokeStyle="rgba(20,18,14,.75)"; c.strokeText(q.text,q.x,q.y-a*70); c.fillStyle=q.farbe; c.fillText(q.text,q.x,q.y-a*70); }
+  c.globalAlpha=1;
   // Kran am Hafen
   c.strokeStyle=k3Mix("#C9862E","#3A2A18",dunkel); c.lineWidth=5; c.beginPath(); c.moveTo(600,K3_GY); c.lineTo(600,K3_GY-300); c.lineTo(450,K3_GY-300); c.moveTo(600,K3_GY-300); c.lineTo(640,K3_GY-300); c.stroke();
   c.lineWidth=1.5; c.beginPath(); c.moveTo(600,K3_GY-340); c.lineTo(450,K3_GY-300); c.moveTo(600,K3_GY-340); c.lineTo(640,K3_GY-300); c.moveTo(600,K3_GY-300); c.lineTo(600,K3_GY-340);

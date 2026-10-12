@@ -36,6 +36,11 @@ function rectOf(st){
   if(st.tower){ const t=st.tower(); if(!t) return null; const r=tcv.getBoundingClientRect(), n=aktivesWerk().floors.length, nextH=S.factory&&etagenPreis(n)!==undefined?60:0;
     const Y=ROOF+nextH+(n-1-t[0])*FH, laneY=Y+BAND_Y; return {x:r.left+(X0+t[1]*SLW)*TS, y:r.top+(laneY-76)*TS, w:SLW*TS, h:84*TS}; }
   if(st.tw){ const q=st.tw(); if(!q) return null; const r=tcv.getBoundingClientRect(); return {x:r.left+q.x*TS, y:r.top+q.y*TS, w:q.w*TS, h:q.h*TS}; }
+  if(st.k3){ const b=k3Geb(st.k3()); if(!b||!S.k3) return null; const r=k3cv.getBoundingClientRect(), sw=k3Sicht();
+    // Zu Beginn des Schritts fährt die Kamera hin, falls nötig. Danach darf man frei wischen.
+    if(!st.gefahren&&!k3Fahrt&&!k3Zug){ st.gefahren=true; if(b.x<S.k3.cam||b.x+b.w>S.k3.cam+sw) k3Fahre(b.x+b.w/2-sw/2,0.8); }
+    const x0=Math.max(r.left,r.left+(b.x-S.k3.cam)*K3S), x1=Math.min(r.right,r.left+(b.x+b.w-S.k3.cam)*K3S), y0=r.top+(K3_GY-b.h-62)*K3S;
+    return {x:x0, y:y0, w:Math.max(20,x1-x0), h:(b.h+62)*K3S}; }
   if(st.zone){ const r=cv.getBoundingClientRect(); return {x:r.left+4, y:r.top+4, w:W*T-8, h:TOPR()*T-8}; }
   if(st.city){ const p=st.city(), r=cv.getBoundingClientRect(), rad=0.62; return {x:r.left+(p.x-rad)*T, y:r.top+(p.y+TOPR()-rad)*T, w:2*rad*T, h:2*rad*T}; }
   return null;
