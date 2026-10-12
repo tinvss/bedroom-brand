@@ -10,6 +10,7 @@
   --schaft:#C9824A; --sohle:#EDEDED; --runner:#E4572E; --court:#2E6FE4; --hightop:#1F9E6E; --ausr:#C98A1B;
   box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); }
 *{box-sizing:inherit; -webkit-tap-highlight-color:transparent; -webkit-user-select:none; user-select:none}
+html{touch-action:manipulation}
 html,body{margin:0; background:var(--bg); color:var(--ink); font-family:"Archivo",system-ui,sans-serif}
 #app{max-width:520px; margin:0 auto; padding:0 10px calc(16px + env(safe-area-inset-bottom,0px))}
 .top{display:flex; align-items:flex-end; justify-content:space-between; gap:6px; padding:calc(10px + env(safe-area-inset-top,0px)) 2px 8px}
@@ -2696,17 +2697,29 @@ function loescheStand(){ try{ localStorage.removeItem(SAVE_KEY); }catch(e){}
 /* ================= Start ================= */
 newGame();
 let pressing=false;
+// Tipps auf die Leinwände direkt aus Finger runter und hoch, nicht über "click".
+// Der Browser schickt "click" erst nach seiner Gestenerkennung, und auf dem Handy kam er oft gar
+// nicht an (Doppeltipp-Zoom, leicht verrutschter Finger). Dann musste man zwei-, dreimal tippen.
+function tippe(el,fn){ let d=null, erledigt=0;
+  el.addEventListener("pointerdown",e=>{ d=e.button>0?null:{x:e.clientX,y:e.clientY,t:performance.now(),id:e.pointerId}; });
+  el.addEventListener("pointercancel",()=>d=null);
+  el.addEventListener("pointerup",e=>{ const a=d; d=null; if(!a||a.id!==e.pointerId) return;
+    if(Math.hypot(e.clientX-a.x,e.clientY-a.y)>16||performance.now()-a.t>900) return;
+    erledigt=performance.now(); fn(a.x,a.y); });
+  // Den Klick hinterher schlucken, sonst landet er im gerade geöffneten Fenster und schließt es wieder
+  el.addEventListener("touchend",e=>{ if(performance.now()-erledigt<300) e.preventDefault(); },{passive:false});
+  el.addEventListener("click",e=>{ if(performance.now()-erledigt<700) return; fn(e.clientX,e.clientY); }); }
 if(typeof window!=="undefined" && typeof requestAnimationFrame!=="undefined"){
   $("tTurm").onclick=()=>switchView("turm"); $("tStadt").onclick=()=>switchView("stadt");
   $("tForsch").onclick=()=>{ if(S.uhr&&S.haus==="uhren") forschungSheet2(); else if(S.uhr) openSheet(`<h3>Forschung abgeschlossen</h3><p>Sohle hat alles erforscht. Die Manufaktur oben hat ihre eigene Forschung.</p>`); else if(S.floors.length>=3) researchSheet(); else openSheet(`<h3>Forschung</h3><p>Die Forschung öffnet sich, sobald dein Haus <b>drei Etagen</b> hat. Bis dahin: Produktion und Stadt in den Griff bekommen.</p>`); };
   $("pause").onclick=()=>{ paused=!paused; setPauseUI(); };
   $("tip").onclick=()=>$("tip").classList.toggle("auf");   // Tipp auf den Melder zeigt den Rest
   $("fleet").onclick=fleetSheet; $("resbar").onclick=()=>$("tForsch").onclick(); $("stock").onclick=overview;
-  tcv.addEventListener("click",e=>{ const r=tcv.getBoundingClientRect(), x=(e.clientX-r.left)/TS, y=(e.clientY-r.top)/TS;
+  tippe(tcv,(cx,cy)=>{ const r=tcv.getBoundingClientRect(), x=(cx-r.left)/TS, y=(cy-r.top)/TS;
     for(let k=hits.length-1;k>=0;k--){ const h=hits[k]; if(x>=h.x&&x<=h.x+h.w&&y>=h.y&&y<=h.y+h.h){ h.act(); return; } } });
-  cv.addEventListener("click",e=>{ const r=cv.getBoundingClientRect(), y=(e.clientY-r.top)/T-TOPR();
+  tippe(cv,(cx,cy)=>{ const r=cv.getBoundingClientRect(), y=(cy-r.top)/T-TOPR();
     if(y<0&&zoneState()!=="open"){ zoneTap(); return; }
-    cityTap((e.clientX-r.left)/T,y); });
+    cityTap((cx-r.left)/T,y); });
   addEventListener("resize",()=>{ if(view==="stadt") size(); });
   pruefeSpeicher();
   addEventListener("pointerdown",()=>{ pressing=true; if(speicherGeht===false) speicherFreigeben(); },true); const loslassen=()=>setTimeout(()=>pressing=false,120); addEventListener("pointerup",loslassen,true); addEventListener("pointercancel",loslassen,true);
