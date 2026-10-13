@@ -9,9 +9,9 @@ const K3P_PLAETZE=[{x:250,y:372,s:1.18},{x:72,y:362,s:1},{x:428,y:362,s:1},{x:16
 // Anrufe: jeder verkaufte Posten treibt den Kurs hoch, aber auch die Hitze. Rot ist schnell und heiß.
 // Lila ist ein Gerücht aus deiner Zeitung: es kühlt die Blase und bringt einen Rivalen in die Zeitung.
 const K3P_SORTEN={
- gruen:{farbe:"#1F9E6E", kurs:0.05, hitze:0.025, klingeln:7, hype:0.3},
- gelb: {farbe:"#E0A21F", kurs:0.11, hitze:0.06,  klingeln:7, hype:0.6},
- rot:  {farbe:"#D9372B", kurs:0.25, hitze:0.16,  klingeln:6, hype:1.2},
+ gruen:{farbe:"#1F9E6E", kurs:0.035, hitze:0.025, klingeln:7, hype:0.3},
+ gelb: {farbe:"#E0A21F", kurs:0.075, hitze:0.06,  klingeln:7, hype:0.6},
+ rot:  {farbe:"#D9372B", kurs:0.17, hitze:0.16,  klingeln:6, hype:1.2},
  tipp: {farbe:"#7B5BC0", kurs:0.02, hitze:-0.12, klingeln:7, hype:0.8}};
 // Temperament einer Aktie: wie stark sie auf Anrufe springt und wie schnell sie heiß wird
 const K3P_TEMP={ruhig:{kurs:0.8, hitze:0.75}, normal:{kurs:1, hitze:1}, wild:{kurs:1.35, hitze:1.3}};
@@ -23,7 +23,7 @@ const k3Branche=typ=>Object.keys(K3_BRANCHEN).find(k=>K3_BRANCHEN[k].includes(ty
 const k3BranchenAnz=br=>k3Meine().filter(b=>k3Branche(b.typ)===br).length;
 const k3BranchenFaktor=br=>br?Math.min(1.6,0.7+0.3*k3BranchenAnz(br)):1;
 const k3Insider=br=>k3BranchenAnz(br)>0;
-const k3PMax=br=>Math.round(S.k3.budget*0.45*(1+0.25*k3BranchenAnz(br))*(1+0.04*k3Meine().length)/1000)*1000;
+const k3PMax=br=>Math.round(S.k3.budget*0.7*(1+0.25*k3BranchenAnz(br))*(1+0.04*k3Meine().length)/1000)*1000;
 
 function k3P(){ const K=S.k3; if(!K.p) K.p={tische:K3P_PLAETZE.map((_,i)=>({offen:i<=K3P_START_TISCHE, broker:false, lvl:0})), anrufe:[], nextT:S.t+3, an:0, weg:0, nr:0};
   const P=K.p; delete P.leitung; P.tische.forEach(t=>delete t.arbeit);   // Reste der Fassung mit einer Leitung
@@ -39,18 +39,28 @@ const k3PKannBroker=(t,a)=>t.broker&&(a.typ==="gruen"||(a.typ==="gelb"&&t.lvl>=1
 // Die Kriegskasse eines Rivalen: verpasste Anrufe landen dort. Sie macht ihn in Bieterkämpfen stärker.
 const k3Kasse=k=>Math.min(0.4,((S.k3.r&&S.k3.r[k]&&S.k3.r[k].kk)||0)/S.k3.budget*0.15);
 // Was ein Anruf am Kurs macht, in Prozent vom Einsatz
-const k3PSprung=a=>{ const A=k3P().akt; return A?K3P_SORTEN[a.typ].kurs*k3BranchenFaktor(A.br)*K3P_TEMP[A.temp].kurs:0; };
-const k3PWarnung=A=>A&&A.hitze>=A.grenze-0.15;
+// Je heißer die Aktie, desto stärker springt der Kurs. Das große Geld liegt kurz vor dem Knall.
+const k3PSprung=a=>{ const A=k3P().akt; return A?K3P_SORTEN[a.typ].kurs*k3BranchenFaktor(A.br)*K3P_TEMP[A.temp].kurs*(1+1.8*A.hitze*A.hitze):0; };
+// Die Tafel wackelt kurz vor dem Platzen, aber wie kurz, ist bei jeder Aktie anders.
+// Dazu Fehlalarme: manchmal wackelt sie, ohne dass etwas passiert.
+const k3PWarnung=A=>!!A&&(!!A.kipp||A.hitze>=A.grenze-(A.vor||0.15)||(A.fehlT||0)>S.t);
+// Insider sehen keine Linie, sondern eine Zone. Je mehr Häuser der Branche, desto schmaler.
+const k3PZone=A=>{ const n=k3BranchenAnz(A.br); if(!n) return null; const b=n>=3?0.02:n===2?0.05:0.1, m=A.grenze+(A.zoneOff||0)*b;
+  return {lo:Math.max(0,m-b), hi:Math.min(1.05,m+b)}; };
 
 // Einsteigen: drei Größen, die größte hängt an deinen Häusern dieser Branche
+// Drei Einsätze. Wer knapp bei Kasse ist, steigt mit dem kleinsten mit dem ein, was da ist. Sonst säße man nach zwei Pleiten fest.
+function k3PEinsatz(br,stufe){ const e=Math.round(k3PMax(br)*[1/3,2/3,1][stufe]/1000)*1000;
+  if(stufe===0&&S.money<e&&S.money>=5000) return Math.floor(S.money/1000)*1000; return e; }
 function k3PEinsteigen(i,stufe){ const P=k3P(); if(P.akt) return false; const O=P.angebote[i]; if(!O) return false;
-  const e=Math.round(k3PMax(O.br)*[1/3,2/3,1][stufe]/1000)*1000; if(S.money<e) return false;
-  S.money-=e; P.akt={name:O.name, br:O.br, temp:O.temp, einsatz:e, kurs:1, hitze:0, grenze:0.82+Math.random()*0.18, t0:S.t};
+  const e=k3PEinsatz(O.br,stufe); if(S.money<e||e<1000) return false;
+  S.money-=e; P.akt={name:O.name, br:O.br, temp:O.temp, einsatz:e, kurs:1, hitze:0, grenze:(P.gew+P.platz<3?0.7+Math.random()*0.28:0.45+Math.random()*0.53), t0:S.t,   // die ersten drei sind gutmütig
+    vor:0.05+Math.random()*0.1, zoneOff:(Math.random()*2-1)*0.7};
   P.nextT=Math.min(P.nextT,S.t+0.8); return true; }
 // Verkaufen: Einsatz mal Kurs. In Phase 5 schaut sich die Aufsicht das an.
 function k3PVerkaufen(){ const P=k3P(), A=P.akt; if(!A) return 0; const n=Math.round(A.einsatz*A.kurs);
   S.money+=n; S.earned+=n; stat('k3_ein',Math.max(0,n-A.einsatz)); P.gew++; P.akt=null; P.anrufe=[]; P.angebote=k3PNeueAngebote();
-  k3Hoch(Math.min(12,3+6*(A.kurs-1))); k3PPop(250,140,TX.k3_p_verkauft_pop(k3Fmt(n)),"#7CE0A6"); return n; }
+  k3Hoch(Math.min(12,3+6*(A.kurs-1))); k3PPop(250,140,TX.k3_p_verkauft_pop((n>=A.einsatz?"+":"−")+k3Fmt(Math.abs(n-A.einsatz))),n>=A.einsatz?"#7CE0A6":"#FF8A7A"); return n; }
 function k3PPlatzt(){ const P=k3P(), A=P.akt; const rest=Math.round(A.einsatz*0.1); S.money+=rest; P.platz++; P.akt=null; P.anrufe=[]; P.angebote=k3PNeueAngebote();
   k3Hoch(-10); k3PPop(250,140,TX.k3_p_platzt_pop,"#FF6B5B"); P.knallT=animT; k3Erklaer("k3platzt",TX.k3_p_platzt_titel,TX.k3_p_platzt_erkl); }
 
@@ -59,10 +69,13 @@ function k3PStep(){ const P=k3P(), A=P.akt;
   if(!A) return;
   // Ohne Telefonieren sackt der Kurs, die Hitze kühlt ab
   A.kurs=Math.max(0.5,A.kurs-0.004*DT); A.hitze=Math.max(0,A.hitze-0.006*DT);
+  if(A.hitze>0.4&&!((A.fehlT||0)>S.t)&&Math.random()<0.05*DT) A.fehlT=S.t+1.2+Math.random();   // Fehlalarm
   // Wird es heiß, steigen die Rivalen aus, die mitgepumpt haben: der Kurs fällt
   if(A.hitze>0.55&&Math.random()<0.035*DT){ const k=Object.keys(K3_RIVALEN)[Math.floor(Math.random()*4)];
     A.kurs=Math.max(0.5,A.kurs*0.85); A.hitze=Math.max(0,A.hitze-0.12); k3PPop(250,120,TX.k3_p_aussteiger(K3_RIVALEN[k].n.split(" ").slice(-1)[0]),k3Farbe(k)); }
-  if(A.hitze>=A.grenze){ k3PPlatzt(); return; }
+  // Über der Grenze kippt die Aktie: der Kurs fällt sofort, und es bleibt ein kurzer Moment zum Rausgehen
+  if(A.hitze>=A.grenze&&!A.kipp){ A.kipp=S.t; A.kippDauer=0.5+Math.random()*0.6; A.kurs=Math.max(0.5,A.kurs*0.75); k3PPop(250,120,TX.k3_p_kippt,"#FF6B5B"); }
+  if(A.kipp&&S.t-A.kipp>=A.kippDauer){ k3PPlatzt(); return; }
   // Neuer Anruf an einem freien Tisch. Jede Werbeagentur lässt es öfter klingeln.
   if(S.t>=P.nextT){ P.nextT=S.t+1.6/(1+0.25*k3Anz("werbung"))*(0.75+Math.random()*0.5);
     const frei=P.tische.map((t,i)=>i).filter(i=>P.tische[i].offen&&!P.anrufe.some(a=>a.platz===i));
@@ -148,7 +161,7 @@ function k3PTisch(c,i,t,a){ const p=K3P_PLAETZE[i], P=k3P(), T=P.tische[i], s=p.
     c.fillText(z2,bx,by+11*s); } }
 
 // Die Kurstafel: ohne Aktie ein Laufband, mit Aktie Kurs und Hitze. Kurz vor dem Platzen wackelt sie.
-function k3PTafel(c,t,P){ const A=P.akt, warn=k3PWarnung(A), wx=warn?Math.sin(t*35)*2.2:0, knall=P.knallT!==undefined&&animT-P.knallT<0.8;
+function k3PTafel(c,t,P){ const A=P.akt, warn=k3PWarnung(A), wx=warn?Math.sin(t*35)*(A.kipp?6:2.2):0, knall=(P.knallT!==undefined&&animT-P.knallT<0.8)||!!(A&&A.kipp);
   c.save(); c.translate(wx,0);
   c.fillStyle=knall?"#7C1D17":"#1B1A17"; c.fillRect(40,18,420,62); c.fillStyle="#26241F"; c.fillRect(46,24,408,50);
   c.save(); c.beginPath(); c.rect(46,24,408,50); c.clip();
@@ -165,7 +178,8 @@ function k3PTafel(c,t,P){ const A=P.akt, warn=k3PWarnung(A), wx=warn?Math.sin(t*
     const x0=52, w=396, y=60; c.fillStyle="#3A3833"; c.fillRect(x0,y,w,8);
     const g=c.createLinearGradient(x0,0,x0+w,0); g.addColorStop(0,"#4ADE80"); g.addColorStop(0.6,"#F2B441"); g.addColorStop(1,"#F87171");
     c.fillStyle=g; c.fillRect(x0,y,w*Math.min(1,A.hitze),8);
-    if(k3Insider(A.br)){ c.fillStyle="#fff"; c.fillRect(x0+w*A.grenze-1,y-3,2,14); }
+    const Z=k3PZone(A); if(Z){ c.fillStyle="rgba(255,255,255,.35)"; c.fillRect(x0+w*Z.lo,y-3,w*(Math.min(1,Z.hi)-Z.lo),14);
+      c.fillStyle="#fff"; c.fillRect(x0+w*Z.lo-1,y-3,2,14); if(Z.hi<=1) c.fillRect(x0+w*Z.hi-1,y-3,2,14); }
     c.textAlign="left"; c.font="700 9px Archivo, sans-serif"; c.fillStyle="#ABA394"; c.fillText(k3Insider(A.br)?TX.k3_p_hitze_insider:TX.k3_p_hitze,52,57); }
   c.restore(); c.restore(); }
 
@@ -211,6 +225,6 @@ function k3PTischSheet(i){ reopen=()=>k3PTischSheet(i); const P=k3P(), T=P.tisch
 function k3Ansicht(v){ S.k3.ansicht=v; $("k3sky").style.display=v==="par"?"none":""; $("k3par").style.display=v==="par"?"":"none";
   $("k3tSky").classList.toggle("on",v!=="par"); $("k3tPar").classList.toggle("on",v==="par");
   // Erklärung Nummer 3: die Fassung mit Pump and Dump, auch wer die alten schon kannte, sieht sie
-  if(v==="par"){ k3PGroesse(); k3Erklaer("k3parkett3",TX.k3_p_titel,TX.k3_p_erkl); } else k3Groesse(); }
+  if(v==="par"){ k3PGroesse(); k3Erklaer("k3parkett4",TX.k3_p_titel,TX.k3_p_erkl); } else k3Groesse(); }
 function k3PEingaben(){ if(!k3pcv) return; tippe(k3pcv,(cx,cy)=>{ if(S&&S.k3) k3PTipp(cx,cy); });
   $("k3tSky").onclick=()=>k3Ansicht("sky"); $("k3tPar").onclick=()=>k3Ansicht("par"); }
