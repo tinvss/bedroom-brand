@@ -146,3 +146,13 @@ body.k3.paused canvas{filter:saturate(.55)}
 #k3aktionen button{appearance:none; font:inherit; flex:1 1 40%; display:flex; flex-direction:column; align-items:flex-start; gap:2px; padding:9px 11px; min-height:48px; border-radius:10px; border:1px solid var(--line); background:var(--card); color:var(--ink); cursor:pointer; text-align:left}
 #k3aktionen button.bereit{background:var(--ink); color:var(--card); border-color:var(--ink)}
 #k3aktionen b{font-size:13px} #k3aktionen span{font-size:11.5px; opacity:.75; font-variant-numeric:tabular-nums}
+#k3karten{position:fixed; left:10px; right:10px; bottom:calc(10px + env(safe-area-inset-bottom,0px)); max-width:500px; margin:0 auto; z-index:22; display:flex; flex-direction:column; gap:8px; pointer-events:none}
+#k3karten:empty{display:none}
+.k3karte{pointer-events:auto; display:flex; align-items:center; gap:10px; background:var(--ink); color:var(--card); border-radius:14px; padding:10px 12px; box-shadow:0 8px 28px rgba(0,0,0,.35); border:2px solid #F2B441; cursor:pointer}
+.k3karte.bad{border-color:#D9372B; animation:ap 1s ease-in-out infinite}
+.k3karte .txt{flex:1; min-width:0} .k3karte b{display:block; font-size:13.5px; line-height:1.25} .k3karte span{font-size:12px; opacity:.8; font-variant-numeric:tabular-nums}
+.k3karte .kn{display:flex; flex-direction:column; gap:6px; flex:none}
+.k3karte button{appearance:none; font:inherit; font-weight:800; font-size:12.5px; border:0; border-radius:9px; padding:10px 12px; min-height:40px; background:#F2B441; color:#1B1A17; cursor:pointer; white-space:nowrap}
+.k3karte button:disabled{background:#4A4843; color:#ABA394}
+body:not(.k3) #k3karten{display:none}
+body.k3 #app{padding-bottom:180px}

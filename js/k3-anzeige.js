@@ -7,15 +7,18 @@ const k3Anteil=o=>{ const g=k3Gesamt(); return g?K3_GEB.filter(b=>S.k3.g[b.id].o
 const k3Prozent=o=>{ const p=k3Anteil(o)*100; return p>0&&p<1?"<1":String(Math.round(p)); };
 const k3Name=o=>o==="du"?TX.k3_du_firma:o?K3_RIVALEN[o].firma:TX.k3_frei;
 
+// Ältere Spielstände nachziehen. Die Agentur am Hafen war früher eine Kanzlei von Hammer.
+function k3Migrieren(){ const K=S.k3; if((K.mig||0)>=1) return; K.mig=1;
+  const G=K.g.kai; if(G&&G.o==="hammer"){ G.o=null; G.wert=Math.max(1000,Math.round(K.budget*0.7/1000)*1000); } }
 // Kapitel 3 an oder aus: alte Ansichten weg, Skyline her
 function k3Modus(an){ document.body.classList.toggle("k3",!!an); $("k3View").style.display=an?"":"none";
-  if(an){ tutOn=false; tutQ=[]; $("tutRing").style.display="none"; $("tutBox").style.display="none"; k3Groesse(); k3Kamera(S.k3.cam); } }
+  if(an){ k3Migrieren(); tutOn=false; tutQ=[]; $("tutRing").style.display="none"; $("tutBox").style.display="none"; k3Groesse(); k3Kamera(S.k3.cam); } }
 
 function k3Hud(){ releaseDeferred();
   setzeWennNeu($("money"),k3Fmt(S.money)+`<u>${TX.k3_kapital}</u>`); $("money").style.color=S.money<0?"var(--bad)":"";
   setzeWennNeu($("pairs"),k3Prozent("du")+`%<u>${TX.k3_skyline}</u>`);
   setzeWennNeu($("ammo"),k3Meine().length+`<u>${TX.k3_gebaeude}</u>`);
-  k3Tipp(); k3Status(); k3Aktionen();
+  k3Tipp(); k3Status(); k3Aktionen(); k3Karten();
   setzeWennNeu($("k3rivalen"),Object.keys(K3_RIVALEN).map(k=>{ const R=K3_RIVALEN[k];
     return `<button data-rv="${k}">${k3LogoSvg(k,26)}<b>${R.n.split(" ").slice(-1)[0]}</b><span>${k3Prozent(k)}%</span></button>`; }).join(""));
   document.querySelectorAll("#k3rivalen [data-rv]").forEach(b=>b.onclick=()=>k3RivalSheet(b.dataset.rv));
@@ -92,12 +95,18 @@ function k3GebSheet(id){ reopen=()=>k3GebSheet(id); const b=k3Geb(id), G=S.k3.g[
     if(b.typ==="bank") h+=`<div class="opt" data-kred="1"><div><b>${TX.k3_akt_kredit}</b><span>${TX.k3_frei_betrag(k3Fmt(k3KreditFrei()))}</span></div><em>›</em></div>`;
     h+=`<div class="opt" data-verk="1"><div><b>${TX.k3_verkaufen_80}</b><span>${TX.k3_verkaufen_d}</span></div><em>${k3Fmt(G.wert*0.8)}</em></div>`; }
   else if(b.typ==="turm") h+=`<p><b>${TX.k3_wert}</b> ${k3Fmt(G.wert)}</p><p style="color:var(--bad);font-weight:700">${TX.k3_turm_nicht}</p>`;
-  else { const p=k3Preis(b), ok=k3Leistbar(b), kredit=Math.max(0,p-Math.max(0,Math.round(S.money)));
+  else if(S.k3.auktion&&S.k3.auktion.id===id){ const A=S.k3.auktion, p=k3Schritt(A.preis), ok=A.fuehrt!=="du"&&S.money+k3KreditFrei()>=p;
+    h+=`<p><b>${TX.k3_wert}</b> ${k3Fmt(G.wert)}</p><p style="color:var(--bad);font-weight:700">${TX.k3_auktion_laeuft}</p>
+      <div class="opt ${ok?"":"off"}" ${ok?`data-biet="1"`:""}><div><b>${A.fuehrt==="du"?TX.k3_k_fuehrst_du(k3Fmt(A.preis)):TX.k3_k_bieten(k3Fmt(p))}</b><span></span></div><em>${k3Fmt(p)}</em></div>`; }
+  else { const p=k3Preis(b), ok=k3Leistbar(b)&&!S.k3.auktion, kredit=Math.max(0,p-Math.max(0,Math.round(S.money)));
     const d=[]; if(o) d.push(TX.k3_aufschlag_d(k3Dez(k3Aufschlag(),2))); if(k3Skandal(o)) d.push(TX.k3_skandal_billig);
+    if(o){ const name=K3_RIVALEN[o].n.split(" ").slice(-1)[0]; d.push(k3RivalMax(o,b,"wehr")>=k3Schritt(p)?TX.k3_wehrt_sich(name,k3Fmt(Math.round(k3RivalMax(o,b,"wehr")/10000)*10000)):TX.k3_wehrt_nicht(name)); }
+    if(S.k3.auktion) d.push(TX.k3_erst_auktion);
     if(ok&&kredit>0) d.push(TX.k3_mit_kredit(k3Fmt(kredit))); if(!ok) d.push(TX.k3_fehlt(k3Fmt(p-Math.max(0,S.money)-k3KreditFrei())));
     h+=`<p><b>${TX.k3_wert}</b> ${k3Fmt(G.wert)}</p><div class="opt ${ok?"":"off"}" ${ok?`data-kauf="1"`:""}><div><b>${o?TX.k3_uebernehmen:TX.k3_kaufen}</b><span>${d.join(" ")}</span></div><em>${k3Fmt(p)}</em></div>`; }
   openSheet(h,()=>{ const q=s=>document.querySelector(s);
-    if(q("[data-kauf]")) q("[data-kauf]").onclick=()=>{ if(k3Kaufen(id)){ $("sheet").innerHTML=""; reopen=null; hud(); } };
+    if(q("[data-kauf]")) q("[data-kauf]").onclick=()=>{ if(k3Uebernehmen(id)){ $("sheet").innerHTML=""; reopen=null; hud(); } };
+    if(q("[data-biet]")) q("[data-biet]").onclick=()=>{ k3Bieten(); $("sheet").innerHTML=""; reopen=null; hud(); };
     if(q("[data-verk]")) q("[data-verk]").onclick=()=>{ k3Verkaufen(id); $("sheet").innerHTML=""; reopen=null; hud(); };
     if(q("[data-kamp]")) q("[data-kamp]").onclick=()=>{ k3Kampagne(); $("sheet").innerHTML=""; reopen=null; hud(); };
     if(q("[data-zeit]")) q("[data-zeit]").onclick=()=>k3ZeitungSheet();
@@ -121,3 +130,22 @@ function k3RivalSheet(k){ reopen=()=>k3RivalSheet(k); const R=K3_RIVALEN[k], sei
     <p>${R.d}</p><p><b>${k3Prozent(k)}%</b> ${TX.k3_der_skyline} · ${seine.length} ${TX.k3_gebaeude_klein}</p>
     ${seine.map(b=>`<div class="opt" data-zg="${b.id}"><div><b>${b.n}</b><span>${K3_TYPEN[b.typ].n}</span></div><em>${k3Fmt(S.k3.g[b.id].wert)}</em></div>`).join("")}`,
     ()=>document.querySelectorAll("[data-zg]").forEach(el=>el.onclick=()=>{ const b=k3Geb(el.dataset.zg); $("sheet").innerHTML=""; reopen=null; k3Fahre(b.x+b.w/2-k3Sicht()/2,0.9); })); }
+
+// Karten unten am Rand: Bieterkampf und Angriff. Die Knöpfe bleiben stehen, nur Zahlen und Sekunden ändern sich.
+function k3Karten(){ const el=$("k3karten"), K=S.k3, A=K.auktion, X=K.angriff, teile=[], werte=[];
+  if(X){ const b=k3Geb(X.id), R=K3_RIVALEN[X.rival], c=k3AbwehrPreis(b), ok=S.money>=c, an=k3AnwaltBereit();
+    teile.push(`<div class="k3karte bad" data-geh="${X.id}">${k3LogoSvg(X.rival,34)}<div class="txt"><b>${TX.k3_k_angriff(R.n.split(" ").slice(-1)[0],b.n)}</b><span data-w="${werte.length}"></span></div>
+      <div class="kn"><button data-abw="1" ${ok?"":"disabled"}>${TX.k3_k_abwehren(k3Fmt(c))}</button>${k3Anz("kanzlei")?`<button data-anw="1" ${an?"":"disabled"}>${TX.k3_akt_anwaelte}</button>`:""}</div></div>`);
+    werte.push(TX.k3_k_sonst_weg(Math.max(0,Math.ceil(X.ende-S.t)))); }
+  if(A){ const b=k3Geb(A.id), R=K3_RIVALEN[A.rival], p=k3Schritt(A.preis), ok=A.fuehrt!=="du"&&S.money+k3KreditFrei()>=p;
+    teile.push(`<div class="k3karte" data-geh="${A.id}">${k3LogoSvg(A.rival,34)}<div class="txt"><b>${TX.k3_k_bieterkampf(b.n)}</b><span data-w="${werte.length}"></span></div>
+      <div class="kn"><button data-bt="1" ${ok?"":"disabled"}>${A.fuehrt==="du"?TX.k3_k_du_vorn:ok?TX.k3_k_bieten(k3Fmt(p)):TX.k3_k_zu_teuer}</button></div></div>`);
+    werte.push((A.fuehrt==="du"?TX.k3_k_fuehrst_du(k3Fmt(A.preis)):TX.k3_k_fuehrt(R.n.split(" ").slice(-1)[0],k3Fmt(A.preis)))+" · "+TX.k3_k_sek(Math.max(0,Math.ceil(A.ende-S.t)))); }
+  const html=teile.join("");
+  if(el.dataset.h!==html){ el.dataset.h=html; el.innerHTML=html;
+    const q=s=>el.querySelector(s);
+    if(q("[data-abw]")) q("[data-abw]").onclick=e=>{ e.stopPropagation(); k3Abwehren(); hud(); };
+    if(q("[data-anw]")) q("[data-anw]").onclick=e=>{ e.stopPropagation(); k3Anwaelte(); hud(); };
+    if(q("[data-bt]")) q("[data-bt]").onclick=e=>{ e.stopPropagation(); k3Bieten(); hud(); };
+    el.querySelectorAll("[data-geh]").forEach(k=>k.onclick=()=>{ const b=k3Geb(k.dataset.geh); k3Fahre(b.x+b.w/2-k3Sicht()/2,0.7); }); }
+  el.querySelectorAll("[data-w]").forEach(sp=>{ const t=werte[+sp.dataset.w]; if(sp.textContent!==t) sp.textContent=t; }); }
