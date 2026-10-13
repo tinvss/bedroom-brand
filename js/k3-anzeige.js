@@ -20,8 +20,9 @@ function k3Hud(){ releaseDeferred();
   setzeWennNeu($("pairs"),k3Prozent("du")+`%<u>${TX.k3_skyline}</u>`);
   setzeWennNeu($("ammo"),k3Meine().length+`<u>${TX.k3_gebaeude}</u>`);
   k3Tipp(); k3Status(); k3Aktionen(); k3Karten();
-  const n=k3PKlingelt(); setzeWennNeu($("k3tPar"),TX.k3_tab_parkett+(n&&S.k3.ansicht!=="par"?`<i>☎ ${n}</i>`:""));
-  setzeWennNeu($("k3parinfo"),TX.k3_p_legende);
+  // Am Tab: Feuer, wenn die Blase gleich platzt, sonst die klingelnden Telefone
+  const n=k3PKlingelt(), A=k3P().akt; setzeWennNeu($("k3tPar"),TX.k3_tab_parkett+(S.k3.ansicht!=="par"&&A?`<i>${k3PWarnung(A)?"🔥":"☎ "+n}</i>`:""));
+  k3PumpPanel();
   // Wer schon spielt, bekommt das Parkett einmal gezeigt
   if(S.k3.seen.tut&&!S.k3.seen.parHinweis&&!$("overlay").innerHTML&&!tutQ.length){ S.k3.seen.parHinweis=true; tutOn=true; tutI=TUT.length;
     tutQ.push({id:"k3e2", el:()=>$("k3tPar"), t:TX.k3_tut_5_neu, done:()=>S.k3.ansicht==="par"}); }
@@ -94,7 +95,9 @@ function k3GebSheet(id){ reopen=()=>k3GebSheet(id); const b=k3Geb(id), G=S.k3.g[
   S.k3.sel=id;
   const wem = o ? `<div class="k3wem">${k3LogoSvg(o,36)}<div><b>${o==="du"?TX.k3_du_firma:K3_RIVALEN[o].n}</b><span>${o==="du"?TX.k3_gehoert_dir:K3_RIVALEN[o].firma}${k3Skandal(o)?` · <b style="color:var(--bad)">${TX.k3_skandal}</b>`:""}</span></div></div>`
     : `<div class="k3wem frei"><i>%</i><div><b>${TX.k3_zu_verkaufen_lang}</b><span>${TX.k3_frei_d}</span></div></div>`;
-  let h=`<h3>${b.n}</h3><p style="margin-top:-4px">${v.n} · ${T.n}${T.waffe?` · <b style="color:#7B5BC0">${TX.k3_waffe}</b>`:""}</p>${wem}<p>${T.d}</p>`;
+  const br=k3Branche(b.typ);
+  let h=`<h3>${b.n}</h3><p style="margin-top:-4px">${v.n} · ${T.n}${T.waffe?` · <b style="color:#7B5BC0">${TX.k3_waffe}</b>`:""}</p>${wem}<p>${T.d}</p>`
+    +(br?`<p>${k3BrSvg(br,15)} ${TX.k3_branche_zeile(TX["k3_br_"+br],k3BranchenAnz(br),k3Dez(k3BranchenFaktor(br),1),o==="du"?null:k3Dez(Math.min(1.6,0.7+0.3*(k3BranchenAnz(br)+1)),1))}</p>`:"");
   if(o==="du"){ h+=`<p><b>${TX.k3_bringt(k3Fmt(k3Rate(b)))}</b>${b.typ==="tech"&&G.aus>S.t?` · ${TX.k3_server_weg}`:""}</p>`;
     if(b.typ==="werbung"){ const cd=k3Cooldown(S.k3.kampagneT,K3_KAMPAGNE_CD,k3Anz("werbung")); h+=`<div class="opt ${cd?"off":""}" ${cd?"":`data-kamp="1"`}><div><b>${TX.k3_akt_kampagne}</b><span>${cd?TX.k3_noch_s(cd):TX.k3_akt_kampagne_s}</span></div><em></em></div>`; }
     if(b.typ==="zeitung") h+=`<div class="opt" data-zeit="1"><div><b>${TX.k3_akt_schlagzeile}</b><span>${TX.k3_akt_schlagzeile_s}</span></div><em>›</em></div>`;
@@ -156,3 +159,17 @@ function k3Karten(){ const el=$("k3karten"), K=S.k3, A=K.auktion, X=K.angriff, t
     if(q("[data-bt]")) q("[data-bt]").onclick=e=>{ e.stopPropagation(); k3Bieten(); hud(); };
     el.querySelectorAll("[data-geh]").forEach(k=>k.onclick=()=>{ const b=k3Geb(k.dataset.geh); k3Fahre(b.x+b.w/2-k3Sicht()/2,0.7); }); }
   el.querySelectorAll("[data-w]").forEach(sp=>{ const t=werte[+sp.dataset.w]; if(sp.textContent!==t) sp.textContent=t; }); }
+
+// Unter dem Parkett: ohne Aktie die drei Angebote mit Einsätzen, mit Aktie der große Verkaufen-Knopf
+function k3PumpPanel(){ const el=$("k3parinfo"), P=k3P(), A=P.akt; let key, html;
+  if(A){ key="akt"; html=`<div class="k3pump"><button id="k3dump"><b>${TX.k3_p_verkaufen}</b><span id="k3dumpw"></span></button><div id="k3pzeile"></div></div><div class="k3leg">${TX.k3_p_legende}</div>`; }
+  else { html=`<p class="k3pwaehl">${TX.k3_p_waehl}</p>`+P.angebote.map((O,i)=>{ const m=k3PMax(O.br), st=[1/3,2/3,1].map(f=>Math.round(m*f/1000)*1000);
+      return `<div class="k3akt"><div class="kopf">${k3BrSvg(O.br,20)}<div><b>${O.name}</b><span>${TX["k3_temp_"+O.temp]} · ${TX["k3_br_"+O.br]} ×${k3Dez(k3BranchenFaktor(O.br),1)}${k3Insider(O.br)?` · <em>${TX.k3_p_insider}</em>`:""}</span></div></div>
+        <div class="ein">${st.map((e,k)=>`<button data-ein="${i}:${k}" ${S.money>=e?"":"disabled"}>${k3Fmt(e)}</button>`).join("")}</div></div>`; }).join("");
+    key=html; }
+  if(el.dataset.h!==key){ el.dataset.h=key; el.innerHTML=html;
+    const d=$("k3dump"); if(d) d.onclick=()=>{ k3PVerkaufen(); hud(); };
+    el.querySelectorAll("[data-ein]").forEach(b=>b.onclick=()=>{ const [i,k]=b.dataset.ein.split(":").map(Number); if(k3PEinsteigen(i,k)) hud(); }); }
+  if(A){ const w=TX.k3_p_dumpwert(k3Fmt(A.einsatz*A.kurs),k3Dez(A.kurs,2)); if($("k3dumpw").textContent!==w) $("k3dumpw").textContent=w;
+    const z=TX.k3_p_zeile(A.name,k3Fmt(A.einsatz),Math.round(A.hitze*100)); if($("k3pzeile").textContent!==z) $("k3pzeile").textContent=z;
+    $("k3dump").classList.toggle("heiss",k3PWarnung(A)); } }
