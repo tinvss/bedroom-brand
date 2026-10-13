@@ -16,16 +16,16 @@ const k3Farbe=o=>o==="du"?K3_DU.farbe:o&&K3_RIVALEN[o]?K3_RIVALEN[o].farbe:"#B9B
 // Was eine Firma kann: Geldmaschine oder Waffe. rate ist der Anteil ihres Werts, den sie pro Minute bringt,
 // bevor der Hype ihn vervielfacht. Waffen bringen wenig, dafür können sie etwas.
 const K3_TYPEN={
- imbiss:  {rate:0.6, n:TX.k3_typ_imbiss,   d:TX.k3_typ_imbiss_d},
- parkhaus:{rate:0.42, n:TX.k3_typ_parkhaus, d:TX.k3_typ_parkhaus_d},
- hotel:   {rate:0.55, n:TX.k3_typ_hotel,    d:TX.k3_typ_hotel_d},
- sneaker: {rate:0.65, n:TX.k3_typ_sneaker,  d:TX.k3_typ_sneaker_d},
- kanzlei: {rate:0.15, n:TX.k3_typ_kanzlei,  d:TX.k3_typ_kanzlei_d, waffe:true},
- zeitung: {rate:0.15, n:TX.k3_typ_zeitung,  d:TX.k3_typ_zeitung_d, waffe:true},
- bank:    {rate:0.12, n:TX.k3_typ_bank,     d:TX.k3_typ_bank_d,    waffe:true},
- werbung: {rate:0.15, n:TX.k3_typ_werbung,  d:TX.k3_typ_werbung_d, waffe:true},
- tech:    {rate:0.8, n:TX.k3_typ_tech,     d:TX.k3_typ_tech_d},
- turm:    {rate:0.4, n:TX.k3_typ_turm,     d:TX.k3_typ_turm_d}};
+ imbiss:  {rate:0.36, n:TX.k3_typ_imbiss,   d:TX.k3_typ_imbiss_d},
+ parkhaus:{rate:0.252, n:TX.k3_typ_parkhaus, d:TX.k3_typ_parkhaus_d},
+ hotel:   {rate:0.33, n:TX.k3_typ_hotel,    d:TX.k3_typ_hotel_d},
+ sneaker: {rate:0.39, n:TX.k3_typ_sneaker,  d:TX.k3_typ_sneaker_d},
+ kanzlei: {rate:0.09, n:TX.k3_typ_kanzlei,  d:TX.k3_typ_kanzlei_d, waffe:true},
+ zeitung: {rate:0.09, n:TX.k3_typ_zeitung,  d:TX.k3_typ_zeitung_d, waffe:true},
+ bank:    {rate:0.072, n:TX.k3_typ_bank,     d:TX.k3_typ_bank_d,    waffe:true},
+ werbung: {rate:0.09, n:TX.k3_typ_werbung,  d:TX.k3_typ_werbung_d, waffe:true},
+ tech:    {rate:0.48, n:TX.k3_typ_tech,     d:TX.k3_typ_tech_d},
+ turm:    {rate:0.24, n:TX.k3_typ_turm,     d:TX.k3_typ_turm_d}};
 
 // Viertel von links nach rechts. Zwischen Bankenviertel und Insel liegt der Fluss mit der Brücke.
 const K3_VIERTEL=[
@@ -41,7 +41,7 @@ const K3_FLUSS={x0:2240, x1:2380};
 const K3_GEB=[
  {id:"pier9",    n:TX.k3_g_pier9,    v:"hafen",   x:24,   w:170, h:110, stil:"lager",    typ:"parkhaus", f:0.45, o:null},
  {id:"moewe",    n:TX.k3_g_moewe,    v:"hafen",   x:212,  w:125, h:140, stil:"lager",    typ:"imbiss",   f:0.6,  o:null},
- {id:"kai",      n:TX.k3_g_kai,      v:"hafen",   x:356,  w:96,  h:250, stil:"backstein",typ:"kanzlei",  f:1.4,  o:"hammer"},
+ {id:"kai",      n:TX.k3_g_kai,      v:"hafen",   x:356,  w:96,  h:250, stil:"backstein",typ:"werbung",  f:0.7,  o:null},
  {id:"container",n:TX.k3_g_container,v:"hafen",   x:470,  w:116, h:330, stil:"glas",     typ:"hotel",    f:2.2,  o:"hammer"},
  {id:"bagel",    n:TX.k3_g_bagel,    v:"uptown",  x:628,  w:92,  h:150, stil:"brown",    typ:"imbiss",   f:0.8,  o:"bloom"},
  {id:"pelikan",  n:TX.k3_g_pelikan,  v:"uptown",  x:734,  w:112, h:265, stil:"brown",    typ:"hotel",    f:1.7,  o:"bloom"},
