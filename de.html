@@ -4,7 +4,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/spiel.css?v=4">
+<link rel="stylesheet" href="css/spiel.css?v=6">
 <div id="app">
   <div class="top">
     <div class="n m" id="money">0<u>GELD</u></div>
@@ -18,7 +18,9 @@
   <div class="stock" id="stock" style="cursor:pointer"></div>
   <div id="turmView"><div id="haeuser"></div><canvas id="tc"></canvas><div id="hand"></div></div>
   <div id="stadtView" style="display:none"><div id="region"></div><div class="fleet" id="fleet"></div><canvas id="c"></canvas></div>
-  <div id="k3View" style="display:none"><div id="k3status"></div><canvas id="k3c"></canvas><div id="k3aktionen"></div><canvas id="k3karte"></canvas><div id="k3rivalen"></div></div>
+  <div id="k3View" style="display:none"><div class="k3tabs"><button class="tab on" id="k3tSky"></button><button class="tab" id="k3tPar"></button></div><div id="k3status"></div>
+    <div id="k3sky"><canvas id="k3c"></canvas><div id="k3aktionen"></div><canvas id="k3karte"></canvas><div id="k3rivalen"></div></div>
+    <div id="k3par" style="display:none"><canvas id="k3pc"></canvas><div id="k3parinfo"></div></div></div>
   <div class="mk" id="market"></div>
 </div>
 <div id="sheet"></div>
@@ -26,30 +28,31 @@
 <div id="alarm"></div>
 <div id="k3karten"></div>
 <div id="tutRing"></div><div id="tutBox"></div>
-<script src="text/de.js?v=4"></script>
-<script src="js/daten.js?v=4"></script>
-<script src="js/zustand.js?v=4"></script>
-<script src="js/helfer.js?v=4"></script>
-<script src="js/turm.js?v=4"></script>
-<script src="js/stadt.js?v=4"></script>
-<script src="js/schritt.js?v=4"></script>
-<script src="js/kapitel2.js?v=4"></script>
-<script src="js/kapitel2-forschung.js?v=4"></script>
-<script src="js/meisterstueck.js?v=4"></script>
-<script src="js/forschung.js?v=4"></script>
-<script src="js/exit.js?v=4"></script>
-<script src="js/tutorial.js?v=4"></script>
-<script src="js/eingaben-turm.js?v=4"></script>
-<script src="js/eingaben-stadt.js?v=4"></script>
-<script src="js/forschung-fenster.js?v=4"></script>
-<script src="js/zeichnen-turm.js?v=4"></script>
-<script src="js/zeichnen-stadt.js?v=4"></script>
-<script src="js/anzeige.js?v=4"></script>
-<script src="js/k3-daten.js?v=4"></script>
-<script src="js/k3-skyline.js?v=4"></script>
-<script src="js/k3-anzeige.js?v=4"></script>
-<script src="js/k3-wirtschaft.js?v=4"></script>
-<script src="js/k3-rivalen.js?v=4"></script>
-<script src="js/k3-uebergang.js?v=4"></script>
-<script src="js/speichern.js?v=4"></script>
-<script src="js/start.js?v=4"></script>
+<script src="text/de.js?v=6"></script>
+<script src="js/daten.js?v=6"></script>
+<script src="js/zustand.js?v=6"></script>
+<script src="js/helfer.js?v=6"></script>
+<script src="js/turm.js?v=6"></script>
+<script src="js/stadt.js?v=6"></script>
+<script src="js/schritt.js?v=6"></script>
+<script src="js/kapitel2.js?v=6"></script>
+<script src="js/kapitel2-forschung.js?v=6"></script>
+<script src="js/meisterstueck.js?v=6"></script>
+<script src="js/forschung.js?v=6"></script>
+<script src="js/exit.js?v=6"></script>
+<script src="js/tutorial.js?v=6"></script>
+<script src="js/eingaben-turm.js?v=6"></script>
+<script src="js/eingaben-stadt.js?v=6"></script>
+<script src="js/forschung-fenster.js?v=6"></script>
+<script src="js/zeichnen-turm.js?v=6"></script>
+<script src="js/zeichnen-stadt.js?v=6"></script>
+<script src="js/anzeige.js?v=6"></script>
+<script src="js/k3-daten.js?v=6"></script>
+<script src="js/k3-skyline.js?v=6"></script>
+<script src="js/k3-anzeige.js?v=6"></script>
+<script src="js/k3-wirtschaft.js?v=6"></script>
+<script src="js/k3-rivalen.js?v=6"></script>
+<script src="js/k3-parkett.js?v=6"></script>
+<script src="js/k3-uebergang.js?v=6"></script>
+<script src="js/speichern.js?v=6"></script>
+<script src="js/start.js?v=6"></script>

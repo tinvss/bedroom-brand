@@ -12,7 +12,8 @@ const k3HypeFaktor=()=>0.5+k3Hype()/100;
 const k3Macht=()=>1+k3Anteil("du")*2.5;
 const k3Aufschlag=()=>Math.max(1.2,K3_AUFSCHLAG-0.15*k3Anz("kanzlei"))*k3Macht();
 const k3Skandal=o=>!!(o&&o!=="du"&&S.k3.skandal&&S.k3.skandal[o]>S.t);
-const k3Kaufbar=b=>b.typ!=="turm"&&S.k3.g[b.id].o!=="du"&&!(S.k3.auktion&&S.k3.auktion.id===b.id);
+const k3Gesperrt=b=>(S.k3.g[b.id].sperreT||0)>S.t;
+const k3Kaufbar=b=>b.typ!=="turm"&&S.k3.g[b.id].o!=="du"&&!(S.k3.auktion&&S.k3.auktion.id===b.id)&&!k3Gesperrt(b);
 function k3Preis(b){ const G=S.k3.g[b.id]; if(!G.o) return G.wert;
   return Math.round(G.wert*k3Aufschlag()*(k3Skandal(G.o)?0.75:1)/1000)*1000; }
 // Was ein Gebäude pro Minute bringt
@@ -63,8 +64,10 @@ function k3Step(){ const K=S.k3; if(K.hype===undefined) K.hype=50;
     G.topf=(G.topf||0)+k3Rate(b)/60*DT;
     if(S.t-(G.zahlT||0)>=5){ G.zahlT=S.t; let n=Math.round(G.topf); G.topf=0; if(n<1) continue;
       if(K.schuld>0){ const t=Math.min(K.schuld,Math.round(n*0.4)); K.schuld-=t; n-=t; }
-      S.money+=n; S.earned+=n; k3Pop(b,"+"+k3Fmt(n),"#7CE0A6"); } }
-  k3RivalenStep(); }
+      S.money+=n; S.earned+=n; stat('k3_ein',n); k3Pop(b,"+"+k3Fmt(n),"#7CE0A6"); } }
+  k3RivalenStep();
+  // Das Parkett klingelt ab der Ankunft. Erst wer es einmal gesehen hat oder nach einer Minute.
+  if(K.seen.ankunft&&(S.seen.k3parkett||S.t-K.t0>60)) k3PStep(); }
 
 // Das kleine Tutorial nach der Ankunft: ein Haus kaufen, Logo, Hype, Waffen
 function k3Tutorial(){ if(S.k3.seen.tut) return; S.k3.seen.tut=true; tutOn=true; tutI=TUT.length; tutQ=[];
@@ -73,4 +76,5 @@ function k3Tutorial(){ if(S.k3.seen.tut) return; S.k3.seen.tut=true; tutOn=true;
   tutQ.push({id:"k3a", k3:()=>erstes().id, opt:"[data-kauf]", t:agentur?TX.k3_tut_1_agentur:TX.k3_tut_1, optT:TX.k3_tut_1b, done:()=>k3Meine().length>0},
     {id:"k3b", k3:()=>(k3Meine()[0]||erstes()).id, info:true, t:TX.k3_tut_2},
     {id:"k3c", el:()=>$("k3status"), info:true, t:TX.k3_tut_3},
-    {id:"k3d", el:()=>$("k3aktionen"), info:true, t:agentur?TX.k3_tut_4_agentur:TX.k3_tut_4}); }
+    {id:"k3d", el:()=>$("k3aktionen"), info:true, t:agentur?TX.k3_tut_4_agentur:TX.k3_tut_4},
+    {id:"k3e", el:()=>$("k3tPar"), t:TX.k3_tut_5, done:()=>S.k3.ansicht==="par"}); S.k3.seen.parHinweis=true; }

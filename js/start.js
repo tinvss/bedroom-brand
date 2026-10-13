@@ -25,8 +25,8 @@ if(typeof window!=="undefined" && typeof requestAnimationFrame!=="undefined"){
   tippe(cv,(cx,cy)=>{ const r=cv.getBoundingClientRect(), y=(cy-r.top)/T-TOPR();
     if(y<0&&zoneState()!=="open"){ zoneTap(); return; }
     cityTap((cx-r.left)/T,y); });
-  addEventListener("resize",()=>{ if(S.k3) k3Groesse(); else if(view==="stadt") size(); });
-  k3Eingaben();
+  addEventListener("resize",()=>{ if(S.k3){ k3Groesse(); if(S.k3.ansicht==="par") k3PGroesse(); } else if(view==="stadt") size(); });
+  k3Eingaben(); k3PEingaben();
   pruefeSpeicher();
   addEventListener("pointerdown",()=>{ pressing=true; if(speicherGeht===false) speicherFreigeben(); },true); const loslassen=()=>setTimeout(()=>pressing=false,120); addEventListener("pointerup",loslassen,true); addEventListener("pointercancel",loslassen,true);
   let acc=0,last=performance.now(),ui=0,saveT=0;
@@ -35,7 +35,7 @@ if(typeof window!=="undefined" && typeof requestAnimationFrame!=="undefined"){
     // Zeichenuhr: Spielzeit plus der angefangene Rechenschritt. Damit läuft alles weich,
     // und Vergleiche mit S.t (Treffer, Blitze) stimmen weiter.
     animT=S.t+(paused?0:acc);
-    if(S.k3) drawK3(dt); else if(view==="stadt") drawCity(); else drawTower(dt); if(!pressing){ tutUpdate(); sheetAuffrischen(dt); } ui+=dt; if(ui>0.2&&!pressing){ ui=0; if(view==="turm"&&!S.k3) renderHand(); hud(); }
+    if(S.k3){ if(S.k3.ansicht==="par") drawParkett(dt); else drawK3(dt); } else if(view==="stadt") drawCity(); else drawTower(dt); if(!pressing){ tutUpdate(); sheetAuffrischen(dt); } ui+=dt; if(ui>0.2&&!pressing){ ui=0; if(view==="turm"&&!S.k3) renderHand(); hud(); }
     saveT+=dt; if(saveT>2){ saveT=0; saveGame(); }
     requestAnimationFrame(loop); })(last);
   addEventListener("pagehide",saveGame); document.addEventListener("visibilitychange",()=>{ if(document.hidden) saveGame(); });

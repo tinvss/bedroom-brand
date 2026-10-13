@@ -156,3 +156,7 @@ body.k3.paused canvas{filter:saturate(.55)}
 .k3karte button:disabled{background:#4A4843; color:#ABA394}
 body:not(.k3) #k3karten{display:none}
 body.k3 #app{padding-bottom:180px}
+.k3tabs{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px}
+#k3pc{display:block; width:100%; border-radius:12px; touch-action:manipulation}
+#k3parinfo{display:flex; flex-wrap:wrap; gap:6px 12px; margin-top:8px; font-size:12.5px; color:var(--soft); line-height:1.4}
+#k3parinfo b{display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:5px; vertical-align:-1px}
