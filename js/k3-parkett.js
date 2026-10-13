@@ -6,53 +6,92 @@ const K3P_VW=500, K3P_VH=430;
 // Neun Plätze: 0 ist dein Chefschreibtisch vorn in der Mitte, dann vordere Reihe, dann hintere
 const K3P_PLAETZE=[{x:250,y:372,s:1.18},{x:72,y:362,s:1},{x:428,y:362,s:1},{x:160,y:362,s:1},{x:340,y:362,s:1},
   {x:98,y:258,s:0.82},{x:202,y:258,s:0.82},{x:298,y:258,s:0.82},{x:402,y:258,s:0.82}];
-// Sorten von Anrufen: Betrag als Vielfaches der Grundeinheit, wie lange es klingelt, Hype beim Abheben
+// Sorten von Anrufen: Betrag als Vielfaches der Grundeinheit, wie lange es klingelt,
+// wie lange er dich beschäftigt und wie viel Hype er bringt. Der große Deal hält dich lange fest.
 const K3P_SORTEN={
- gruen:{farbe:"#1F9E6E", mal:1,   dauer:9, hype:0.4},
- gelb: {farbe:"#E0A21F", mal:2.6, dauer:8, hype:0.8},
- rot:  {farbe:"#D9372B", mal:6.5, dauer:7, hype:1.5},
- tipp: {farbe:"#7B5BC0", mal:0.8, dauer:8, hype:1}};
-const K3P_START_TISCHE=3, K3P_BROKER_ANTEIL=0.7, K3P_BROKER_ZEIT=1.6;
+ gruen:{farbe:"#1F9E6E", mal:1,   klingeln:7, arbeit:2,   hype:0.4},
+ gelb: {farbe:"#E0A21F", mal:2.6, klingeln:7, arbeit:4.5, hype:0.8},
+ rot:  {farbe:"#D9372B", mal:6.5, klingeln:6, arbeit:8,   hype:1.5},
+ tipp: {farbe:"#7B5BC0", mal:0.8, klingeln:7, arbeit:2.5, hype:1}};
+const K3P_START_TISCHE=3, K3P_BROKER_ANTEIL=0.7, K3P_BROKER_ZEIT=1.2, K3P_BROKER_LANGSAM=1.3;
+// Branchen: was ein Deal bringt, hängt daran, wie viele Häuser dieser Branche dir gehören
+const K3_BRANCHEN={gastro:["imbiss"], immo:["hotel","parkhaus"], medien:["zeitung","werbung"], finanz:["bank","kanzlei"], tech:["tech"], mode:["sneaker"]};
+const k3Branche=typ=>Object.keys(K3_BRANCHEN).find(k=>K3_BRANCHEN[k].includes(typ))||null;
+const k3BranchenAnz=br=>k3Meine().filter(b=>k3Branche(b.typ)===br).length;
+const k3BranchenFaktor=br=>br?Math.min(2.2,0.4+0.45*k3BranchenAnz(br)):1;
 
-function k3P(){ const K=S.k3; if(!K.p){ K.p={tische:K3P_PLAETZE.map((_,i)=>({offen:i<=K3P_START_TISCHE, broker:false, lvl:0})), anrufe:[], nextT:S.t+3, an:0, weg:0, nr:0}; } return K.p; }
+function k3P(){ const K=S.k3; if(!K.p){ K.p={tische:K3P_PLAETZE.map((_,i)=>({offen:i<=K3P_START_TISCHE, broker:false, lvl:0})), anrufe:[], nextT:S.t+3, an:0, weg:0, nr:0}; }
+  const P=K.p; if(P.leitung===undefined) P.leitung=null; return P; }
 // Grundeinheit eines Anrufs: wächst mit deiner Holding und mit dem Hype
 const k3PEinheit=()=>S.k3.budget*0.015*(1+0.08*k3Meine().length)*k3HypeFaktor();
+const k3PWert=a=>a.typ==="tipp"?a.basis:Math.round(a.basis*k3BranchenFaktor(a.br)/100)*100;
 const k3PTischPreis=()=>{ const n=k3P().tische.filter(t=>t.offen).length-1-K3P_START_TISCHE; return Math.round(S.k3.budget*0.25*Math.pow(1.6,Math.max(0,n))/1000)*1000; };
 const k3PBrokerPreis=()=>{ const n=k3P().tische.filter(t=>t.broker).length; return Math.round(S.k3.budget*0.15*Math.pow(1.5,n)/1000)*1000; };
 const k3PSchulungPreis=()=>{ const n=k3P().tische.filter(t=>t.lvl>0).length; return Math.round(S.k3.budget*0.3*Math.pow(1.5,n)/1000)*1000; };
 const k3PKlingelt=()=>(S.k3&&S.k3.p?S.k3.p.anrufe.length:0);
-// Was ein Broker selbst annimmt
+// Was ein Broker selbst annimmt, und ob er gerade frei ist
 const k3PKannBroker=(t,a)=>t.broker&&(a.typ==="gruen"||(a.typ==="gelb"&&t.lvl>=1));
+const k3PFrei=t=>!t.arbeit;
 // Die Kriegskasse eines Rivalen: verpasste Anrufe landen dort. Sie macht ihn in Bieterkämpfen stärker.
 const k3Kasse=k=>Math.min(0.4,((S.k3.r&&S.k3.r[k]&&S.k3.r[k].kk)||0)/S.k3.budget*0.15);
 
 function k3PStep(){ const P=k3P();
   // Neuer Anruf an einem freien Tisch. Jede Werbeagentur lässt es öfter klingeln.
-  if(S.t>=P.nextT){ P.nextT=S.t+2.8/(1+0.25*k3Anz("werbung"))*(0.75+Math.random()*0.5);
-    const frei=P.tische.map((t,i)=>i).filter(i=>P.tische[i].offen&&!P.anrufe.some(a=>a.platz===i));
+  if(S.t>=P.nextT){ P.nextT=S.t+2.2/(1+0.25*k3Anz("werbung"))*(0.75+Math.random()*0.5);
+    const frei=P.tische.map((t,i)=>i).filter(i=>P.tische[i].offen&&k3PFrei(P.tische[i])&&!P.anrufe.some(a=>a.platz===i));
     if(frei.length){ const z=Math.random(), tipp=k3Anz("zeitung")>0;
-      let typ=z<0.5?"gruen":z<0.82?"gelb":z<(tipp?0.94:1)?"rot":"tipp";
+      const typ=z<0.5?"gruen":z<0.82?"gelb":z<(tipp?0.94:1)?"rot":"tipp";
       let mal=K3P_SORTEN[typ].mal; const gross=typ==="gelb"&&k3Anz("bank")>0&&Math.random()<0.25; if(gross) mal*=2;
-      const i=frei[Math.floor(Math.random()*frei.length)], namen=TX["k3_anrufer_"+typ];
-      P.anrufe.push({id:++P.nr, platz:i, typ, gross, wert:Math.round(k3PEinheit()*mal*(0.8+Math.random()*0.4)/100)*100,
-        t0:S.t, dauer:K3P_SORTEN[typ].dauer, name:namen[Math.floor(Math.random()*namen.length)],
+      const i=frei[Math.floor(Math.random()*frei.length)], namen=TX["k3_anrufer_"+typ], brs=Object.keys(K3_BRANCHEN);
+      P.anrufe.push({id:++P.nr, platz:i, typ, gross, br:typ==="tipp"?null:brs[Math.floor(Math.random()*brs.length)],
+        basis:Math.round(k3PEinheit()*mal*(0.8+Math.random()*0.4)/100)*100,
+        t0:S.t, dauer:K3P_SORTEN[typ].klingeln, name:namen[Math.floor(Math.random()*namen.length)],
         rival:typ==="tipp"?Object.keys(K3_RIVALEN)[Math.floor(Math.random()*4)]:null}); } }
   for(const a of P.anrufe.slice()){ const t=P.tische[a.platz];
-    if(k3PKannBroker(t,a)&&S.t-a.t0>=K3P_BROKER_ZEIT){ k3PAnnehmen(a,true); continue; }
+    if(k3PKannBroker(t,a)&&k3PFrei(t)&&S.t-a.t0>=K3P_BROKER_ZEIT){ k3PBroker(a,t); continue; }
     if(S.t-a.t0>=a.dauer) k3PVerpasst(a); }
+  // Fertige Deals: deine Leitung und die Broker
+  if(P.leitung&&S.t>=P.leitung.ende) k3PFertig(P.leitung,false,0);
+  P.tische.forEach((t,i)=>{ if(t.arbeit&&S.t>=t.arbeit.ende) k3PFertig(t.arbeit,true,i); });
   // Kriegskassen der Rivalen schmelzen langsam
   for(const k in (S.k3.r||{})){ const R=S.k3.r[k]; if(R.kk) R.kk*=Math.pow(0.995,DT); } }
 
-function k3PAnnehmen(a,broker){ const P=k3P(); if(!P.anrufe.includes(a)) return; P.anrufe=P.anrufe.filter(x=>x!==a);
-  const n=Math.round(a.wert*(broker?K3P_BROKER_ANTEIL:1)); S.money+=n; S.earned+=n; stat('k3_ein',n); P.an++;
-  k3Hoch(broker?0:K3P_SORTEN[a.typ].hype);   // Hype gibt es nur, wenn du selbst abhebst
-  const p=K3P_PLAETZE[a.platz]; k3PPop(p.x,p.y-70*p.s,"+"+k3Fmt(n),broker?"#BFE9D2":"#7CE0A6");
+// Du nimmst ab: der Deal landet auf deiner Leitung, solange bist du beschäftigt
+function k3PAnnehmen(a){ const P=k3P(); if(!P.anrufe.includes(a)) return false;
+  const p=K3P_PLAETZE[a.platz];
+  if(P.leitung){ k3PPop(p.x,p.y-70*p.s,TX.k3_p_belegt,"#FBF8F2"); return false; }
+  P.anrufe=P.anrufe.filter(x=>x!==a); const d=K3P_SORTEN[a.typ].arbeit;
+  P.leitung={wert:k3PWert(a), typ:a.typ, br:a.br, rival:a.rival, t0:S.t, ende:S.t+d, dauer:d};
+  return true; }
+function k3PBroker(a,t){ const P=k3P(); P.anrufe=P.anrufe.filter(x=>x!==a); const d=K3P_SORTEN[a.typ].arbeit*K3P_BROKER_LANGSAM;
+  t.arbeit={wert:Math.round(k3PWert(a)*K3P_BROKER_ANTEIL), typ:a.typ, br:a.br, t0:S.t, ende:S.t+d, dauer:d}; }
+function k3PFertig(D,broker,i){ const P=k3P(); if(broker) P.tische[i].arbeit=null; else P.leitung=null;
+  S.money+=D.wert; S.earned+=D.wert; stat('k3_ein',D.wert); P.an++;
+  if(!broker) k3Hoch(K3P_SORTEN[D.typ].hype);   // Hype gibt es nur für deine eigenen Deals
+  const p=K3P_PLAETZE[i]; k3PPop(p.x,p.y-70*p.s,"+"+k3Fmt(D.wert),broker?"#BFE9D2":"#7CE0A6");
   // Ein Insider-Tipp: der Rivale steht eine halbe Minute schlecht da, ohne die Zeitung zu verbrauchen
-  if(a.typ==="tipp"&&a.rival){ S.k3.skandal=S.k3.skandal||{}; S.k3.skandal[a.rival]=Math.max(S.k3.skandal[a.rival]||0,S.t+30);
-    k3PPop(p.x,p.y-100*p.s,TX.k3_p_tipp_pop(K3_RIVALEN[a.rival].n.split(" ").slice(-1)[0]),"#C9B3FF"); } }
+  if(D.typ==="tipp"&&D.rival){ S.k3.skandal=S.k3.skandal||{}; S.k3.skandal[D.rival]=Math.max(S.k3.skandal[D.rival]||0,S.t+30);
+    k3PPop(p.x,p.y-100*p.s,TX.k3_p_tipp_pop(K3_RIVALEN[D.rival].n.split(" ").slice(-1)[0]),"#C9B3FF"); } }
 function k3PVerpasst(a){ const P=k3P(); P.anrufe=P.anrufe.filter(x=>x!==a); P.weg++;
-  const k=Object.keys(K3_RIVALEN)[Math.floor(Math.random()*4)], R=k3Rv(k); R.kk=(R.kk||0)+a.wert;
+  const k=Object.keys(K3_RIVALEN)[Math.floor(Math.random()*4)], R=k3Rv(k); R.kk=(R.kk||0)+k3PWert(a);
   const p=K3P_PLAETZE[a.platz]; k3PPop(p.x,p.y-70*p.s,TX.k3_p_an_rivale(K3_RIVALEN[k].n.split(" ").slice(-1)[0]),k3Farbe(k)); }
+
+// Symbole der Branchen, auf der Leinwand und als SVG
+function k3BrIcon(c,br,x,y,r,f){ c.save(); c.translate(x,y); c.scale(r/10,r/10); c.fillStyle=f; c.strokeStyle=f; c.lineWidth=2; c.lineCap="round";
+  if(br==="gastro"){ c.beginPath(); c.arc(0,1,6,0,7); c.stroke(); c.beginPath(); c.moveTo(-9,-7); c.lineTo(-9,8); c.moveTo(9,-7); c.lineTo(9,8); c.stroke(); }
+  else if(br==="immo"){ c.beginPath(); c.moveTo(-9,0); c.lineTo(0,-8); c.lineTo(9,0); c.closePath(); c.fill(); c.fillRect(-6,0,12,8); }
+  else if(br==="medien"){ c.strokeRect(-8,-7,16,14); c.fillRect(-5,-4,10,3); c.fillRect(-5,1,10,1.6); c.fillRect(-5,4,7,1.6); }
+  else if(br==="finanz"){ c.beginPath(); c.arc(0,0,8,0,7); c.stroke(); c.fillRect(-1,-5,2,10); c.fillRect(-4,-3,8,1.8); c.fillRect(-4,1.5,8,1.8); }
+  else if(br==="tech"){ c.strokeRect(-6,-6,12,12); c.fillRect(-3,-3,6,6); for(const q of [-3,1]){ c.fillRect(q,-9,2,3); c.fillRect(q,6,2,3); c.fillRect(-9,q,3,2); c.fillRect(6,q,3,2); } }
+  else if(br==="mode"){ c.scale(0.7,0.7); c.translate(0,2); c.fill(SHOE_LOW); }
+  c.restore(); }
+function k3BrSvg(br,px){ const g={gastro:'<circle cx="0" cy="1" r="6" fill="none" stroke="currentColor" stroke-width="2"/><path d="M-9-7V8M9-7V8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+  immo:'<path d="M-9 0 0-8 9 0Z" fill="currentColor"/><rect x="-6" y="0" width="12" height="8" fill="currentColor"/>',
+  medien:'<rect x="-8" y="-7" width="16" height="14" fill="none" stroke="currentColor" stroke-width="2"/><rect x="-5" y="-4" width="10" height="3" fill="currentColor"/><rect x="-5" y="1" width="10" height="1.6" fill="currentColor"/><rect x="-5" y="4" width="7" height="1.6" fill="currentColor"/>',
+  finanz:'<circle r="8" fill="none" stroke="currentColor" stroke-width="2"/><rect x="-1" y="-5" width="2" height="10" fill="currentColor"/><rect x="-4" y="-3" width="8" height="1.8" fill="currentColor"/><rect x="-4" y="1.5" width="8" height="1.8" fill="currentColor"/>',
+  tech:'<rect x="-6" y="-6" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"/><rect x="-3" y="-3" width="6" height="6" fill="currentColor"/>',
+  mode:'<path transform="scale(.7) translate(0 2)" fill="currentColor" d="M-12 3c0-4 2-9 6-10l5 3c3 1 7 2 10 4 2 1 3 2 3 3v1h-24z"/>'}[br]||"";
+  return `<svg width="${px}" height="${px}" viewBox="-11 -11 22 22" style="vertical-align:-3px">${g}</svg>`; }
 
 // ---------- Zeichnen ----------
 const k3pcv=$("k3pc"), k3pctx=k3pcv&&k3pcv.getContext?k3pcv.getContext("2d"):null; let K3PS=1, k3PPops=[];
@@ -72,7 +111,7 @@ function k3PTisch(c,i,t,a){ const p=K3P_PLAETZE[i], P=k3P(), T=P.tische[i], s=p.
     c.fillStyle="rgba(27,26,23,.35)"; c.font=`800 ${26*s}px Archivo, sans-serif`; c.textAlign="center"; c.fillText("+",0,-6*s); c.restore(); return; }
   // Stuhl und Figur hinter dem Tisch
   c.fillStyle="#2B2925"; c.fillRect(-12*s,-30*s,24*s,30*s);
-  if(chef||T.broker) k3PFigur(c,0,-4*s,s,chef,t,!!a&&(chef||k3PKannBroker(T,a)));
+  if(chef||T.broker) k3PFigur(c,0,-4*s,s,chef,t,chef?!!P.leitung:!!T.arbeit);
   // Tisch
   c.fillStyle=chef?"#5A3A25":"#7A5A3E"; c.fillRect(-(chef?52:40)*s,-6*s,(chef?104:80)*s,9*s);
   c.fillStyle=chef?"#46301F":"#5F4630"; c.fillRect(-(chef?48:36)*s,3*s,6*s,24*s); c.fillRect((chef?42:30)*s,3*s,6*s,24*s);
@@ -86,14 +125,25 @@ function k3PTisch(c,i,t,a){ const p=K3P_PLAETZE[i], P=k3P(), T=P.tische[i], s=p.
   if(chef){ c.fillStyle="#E4572E"; c.beginPath(); c.arc(-40*s,-12*s,5*s,0,7); c.fill(); }
   if(T.broker&&T.lvl>0){ c.fillStyle="#F2B441"; c.beginPath(); c.arc(-34*s,-34*s,5*s,0,7); c.fill(); c.fillStyle="#1B1A17"; c.font=`800 ${7*s}px Archivo`; c.textAlign="center"; c.fillText("★",-34*s,-31.5*s); }
   c.restore();
-  // Sprechblase mit Betrag und Uhr
-  if(a){ const rest=Math.max(0,1-(S.t-a.t0)/a.dauer), bx=p.x, by=p.y-78*s, bw=96*s, bh=34*s, F=K3P_SORTEN[a.typ];
+  // Fortschritt über einem Tisch, an dem gerade ein Deal läuft
+  const D=chef?P.leitung:T.arbeit;
+  if(D){ const q=Math.min(1,(S.t-D.t0)/D.dauer), bx=p.x, by=p.y-(chef?92:84)*s, bw=(chef?110:86)*s, bh=(chef?22:18)*s;
+    c.fillStyle="rgba(27,26,23,.88)"; c.beginPath(); c.roundRect(bx-bw/2,by-bh/2,bw,bh,bh/2); c.fill();
+    c.fillStyle=K3P_SORTEN[D.typ].farbe; c.beginPath(); c.roundRect(bx-bw/2+2*s,by-bh/2+2*s,(bw-4*s)*q,bh-4*s,bh/2); c.fill();
+    c.fillStyle="#fff"; c.textAlign="center"; c.font=`800 ${(chef?11.5:10)*s}px Archivo, sans-serif`; c.fillText((chef?TX.k3_p_am_telefon+" ":"")+"+"+k3Fmt(D.wert),bx,by+4*s); }
+  // Sprechblase mit Branche, Betrag und Uhr. Bist du beschäftigt, ist sie blass: du kannst nicht ran.
+  if(a){ const rest=Math.max(0,1-(S.t-a.t0)/a.dauer), bx=p.x, by=p.y-78*s, bw=104*s, bh=36*s, F=K3P_SORTEN[a.typ];
+    const blass=!!P.leitung&&!(k3PKannBroker(T,a)&&k3PFrei(T)); c.globalAlpha=blass?0.45:1;
     c.fillStyle=F.farbe; c.beginPath(); c.roundRect(bx-bw/2,by-bh/2,bw,bh,8*s); c.fill();
     c.beginPath(); c.moveTo(bx-6*s,by+bh/2); c.lineTo(bx,by+bh/2+8*s); c.lineTo(bx+6*s,by+bh/2); c.fill();
     c.fillStyle="rgba(255,255,255,.3)"; c.fillRect(bx-bw/2+4*s,by+bh/2-5*s,(bw-8*s)*rest,3*s);
-    c.fillStyle="#fff"; c.textAlign="center"; c.font=`800 ${12.5*s}px Archivo, sans-serif`;
-    c.fillText(a.typ==="tipp"?TX.k3_p_tipp:("+"+k3Fmt(a.wert)),bx,by+1*s); c.font=`600 ${8.5*s}px Archivo, sans-serif`;
-    c.fillText(a.typ==="tipp"?K3_RIVALEN[a.rival].n.split(" ").slice(-1)[0]:(a.gross?TX.k3_p_grosskunde:a.name),bx,by+11*s); } }
+    if(a.br) k3BrIcon(c,a.br,bx-bw/2+13*s,by-3*s,8*s,"#fff");
+    const tx=a.br?bx+8*s:bx; c.fillStyle="#fff"; c.textAlign="center"; c.font=`800 ${12.5*s}px Archivo, sans-serif`;
+    c.fillText(a.typ==="tipp"?TX.k3_p_tipp:("+"+k3Fmt(k3PWert(a))),tx,by+1*s); c.font=`600 ${8.5*s}px Archivo, sans-serif`;
+    const fk=k3BranchenFaktor(a.br), z2=a.typ==="tipp"?K3_RIVALEN[a.rival].n.split(" ").slice(-1)[0]:("×"+k3Dez(fk,1)+" · "+(a.gross?TX.k3_p_grosskunde:a.name));
+    let fs=8.5*s; while(fs>5.5*s&&c.measureText(z2).width>bw-(a.br?30:10)*s){ fs-=0.5*s; c.font=`600 ${fs}px Archivo, sans-serif`; }
+    c.fillText(z2,tx,by+11*s);
+    c.globalAlpha=1; } }
 
 function drawParkett(dt){ if(!k3pctx||!S||!S.k3) return; const d=k3PGroesse(), c=k3pctx, t=animT, P=k3P();
   c.setTransform(K3PS*d,0,0,K3PS*d,0,0);
@@ -127,7 +177,7 @@ function drawParkett(dt){ if(!k3pctx||!S||!S.k3) return; const d=k3PGroesse(), c
 function k3PTreffer(x,y){ for(let i=0;i<K3P_PLAETZE.length;i++){ const p=K3P_PLAETZE[i], s=p.s;
   if(x>=p.x-56*s&&x<=p.x+56*s&&y>=p.y-100*s&&y<=p.y+30*s) return i; } return -1; }
 function k3PTipp(cx,cy){ const r=k3pcv.getBoundingClientRect(), i=k3PTreffer((cx-r.left)/K3PS,(cy-r.top)/K3PS); if(i<0) return;
-  const P=k3P(), a=P.anrufe.find(q=>q.platz===i); if(a){ k3PAnnehmen(a,false); return; } k3PTischSheet(i); }
+  const P=k3P(), a=P.anrufe.find(q=>q.platz===i); if(a){ k3PAnnehmen(a); return; } k3PTischSheet(i); }
 function k3PTischSheet(i){ reopen=()=>k3PTischSheet(i); const P=k3P(), T=P.tische[i];
   let h;
   if(i===0) h=`<h3>${TX.k3_p_chef}</h3><p>${TX.k3_p_chef_d}</p>`;
@@ -143,6 +193,6 @@ function k3PTischSheet(i){ reopen=()=>k3PTischSheet(i); const P=k3P(), T=P.tisch
 // Zwischen Skyline und Parkett umschalten
 function k3Ansicht(v){ S.k3.ansicht=v; $("k3sky").style.display=v==="par"?"none":""; $("k3par").style.display=v==="par"?"":"none";
   $("k3tSky").classList.toggle("on",v!=="par"); $("k3tPar").classList.toggle("on",v==="par");
-  if(v==="par"){ k3PGroesse(); k3Erklaer("k3parkett",TX.k3_p_titel,TX.k3_p_erkl); } else k3Groesse(); }
+  if(v==="par"){ k3PGroesse(); k3Erklaer("k3parkett2",TX.k3_p_titel,TX.k3_p_erkl);   // 2: mit Leitung und Branchen } else k3Groesse(); }
 function k3PEingaben(){ if(!k3pcv) return; tippe(k3pcv,(cx,cy)=>{ if(S&&S.k3) k3PTipp(cx,cy); });
   $("k3tSky").onclick=()=>k3Ansicht("sky"); $("k3tPar").onclick=()=>k3Ansicht("par"); }

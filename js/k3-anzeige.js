@@ -21,7 +21,8 @@ function k3Hud(){ releaseDeferred();
   setzeWennNeu($("ammo"),k3Meine().length+`<u>${TX.k3_gebaeude}</u>`);
   k3Tipp(); k3Status(); k3Aktionen(); k3Karten();
   const n=k3PKlingelt(); setzeWennNeu($("k3tPar"),TX.k3_tab_parkett+(n&&S.k3.ansicht!=="par"?`<i>☎ ${n}</i>`:""));
-  setzeWennNeu($("k3parinfo"),TX.k3_p_legende);
+  setzeWennNeu($("k3parinfo"),TX.k3_p_legende+`<div class="k3br">${Object.keys(K3_BRANCHEN).map(br=>{ const f=k3BranchenFaktor(br);
+    return `<span class="${f<1?"schwach":f>1?"stark":""}">${k3BrSvg(br,15)} ${TX["k3_br_"+br]} <em>×${k3Dez(f,1)}</em></span>`; }).join("")}</div>`);
   // Wer schon spielt, bekommt das Parkett einmal gezeigt
   if(S.k3.seen.tut&&!S.k3.seen.parHinweis&&!$("overlay").innerHTML&&!tutQ.length){ S.k3.seen.parHinweis=true; tutOn=true; tutI=TUT.length;
     tutQ.push({id:"k3e2", el:()=>$("k3tPar"), t:TX.k3_tut_5_neu, done:()=>S.k3.ansicht==="par"}); }
@@ -94,7 +95,9 @@ function k3GebSheet(id){ reopen=()=>k3GebSheet(id); const b=k3Geb(id), G=S.k3.g[
   S.k3.sel=id;
   const wem = o ? `<div class="k3wem">${k3LogoSvg(o,36)}<div><b>${o==="du"?TX.k3_du_firma:K3_RIVALEN[o].n}</b><span>${o==="du"?TX.k3_gehoert_dir:K3_RIVALEN[o].firma}${k3Skandal(o)?` · <b style="color:var(--bad)">${TX.k3_skandal}</b>`:""}</span></div></div>`
     : `<div class="k3wem frei"><i>%</i><div><b>${TX.k3_zu_verkaufen_lang}</b><span>${TX.k3_frei_d}</span></div></div>`;
-  let h=`<h3>${b.n}</h3><p style="margin-top:-4px">${v.n} · ${T.n}${T.waffe?` · <b style="color:#7B5BC0">${TX.k3_waffe}</b>`:""}</p>${wem}<p>${T.d}</p>`;
+  const br=k3Branche(b.typ);
+  let h=`<h3>${b.n}</h3><p style="margin-top:-4px">${v.n} · ${T.n}${T.waffe?` · <b style="color:#7B5BC0">${TX.k3_waffe}</b>`:""}</p>${wem}<p>${T.d}</p>`
+    +(br?`<p>${k3BrSvg(br,15)} ${TX.k3_branche_zeile(TX["k3_br_"+br],k3BranchenAnz(br),k3Dez(k3BranchenFaktor(br),1),o==="du"?null:k3Dez(Math.min(2.2,0.4+0.45*(k3BranchenAnz(br)+1)),1))}</p>`:"");
   if(o==="du"){ h+=`<p><b>${TX.k3_bringt(k3Fmt(k3Rate(b)))}</b>${b.typ==="tech"&&G.aus>S.t?` · ${TX.k3_server_weg}`:""}</p>`;
     if(b.typ==="werbung"){ const cd=k3Cooldown(S.k3.kampagneT,K3_KAMPAGNE_CD,k3Anz("werbung")); h+=`<div class="opt ${cd?"off":""}" ${cd?"":`data-kamp="1"`}><div><b>${TX.k3_akt_kampagne}</b><span>${cd?TX.k3_noch_s(cd):TX.k3_akt_kampagne_s}</span></div><em></em></div>`; }
     if(b.typ==="zeitung") h+=`<div class="opt" data-zeit="1"><div><b>${TX.k3_akt_schlagzeile}</b><span>${TX.k3_akt_schlagzeile_s}</span></div><em>›</em></div>`;
