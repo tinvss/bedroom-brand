@@ -12,7 +12,8 @@ const k3HypeFaktor=()=>0.5+k3Hype()/100;
 const k3Macht=()=>1+k3Anteil("du")*2.5;
 const k3Aufschlag=()=>Math.max(1.2,K3_AUFSCHLAG-0.15*k3Anz("kanzlei"))*k3Macht();
 const k3Skandal=o=>!!(o&&o!=="du"&&S.k3.skandal&&S.k3.skandal[o]>S.t);
-const k3Kaufbar=b=>b.typ!=="turm"&&S.k3.g[b.id].o!=="du"&&!(S.k3.auktion&&S.k3.auktion.id===b.id);
+const k3Gesperrt=b=>(S.k3.g[b.id].sperreT||0)>S.t;
+const k3Kaufbar=b=>b.typ!=="turm"&&S.k3.g[b.id].o!=="du"&&!(S.k3.auktion&&S.k3.auktion.id===b.id)&&!k3Gesperrt(b);
 function k3Preis(b){ const G=S.k3.g[b.id]; if(!G.o) return G.wert;
   return Math.round(G.wert*k3Aufschlag()*(k3Skandal(G.o)?0.75:1)/1000)*1000; }
 // Was ein Gebäude pro Minute bringt

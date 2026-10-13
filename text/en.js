@@ -967,4 +967,8 @@ const TX={
  k3_wehrt_nicht: n=>`${n} won't fight for it.`,
  k3_tut_1_agentur: "Buy your first building. The ad agency in the docks is for sale. It gives you your first button right away. Tap it.",
  k3_tut_4_agentur: "Your first weapon: Campaign. One tap and your hype jumps up. Law firms, newspapers and banks give you more buttons. And keep an eye on the others, they are buying too.",
+ k3_pop_blamiert: "EMBARRASSED",
+ k3_blamage_titel: "That went wrong",
+ k3_blamage: n=>`<p>${n} held on to the building. The papers are laughing, <b>your hype drops</b>.</p><p>He has locked the door: <b>two minutes</b> before you can try again. And he won't leave it at that, expect him to hit back at one of your buildings.</p><p>Next time check the sheet first: it tells you how far he will go.</p>`,
+ k3_gesperrt: (n,s)=>`${n} has locked the door. Try again in ${s} s.`,
 };

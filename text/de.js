@@ -967,4 +967,8 @@ const TX={
  k3_wehrt_nicht: n=>`${n} wird nicht darum kämpfen.`,
  k3_tut_1_agentur: "Kauf dein erstes Gebäude. Die Werbeagentur am Hafen ist zu haben, sie gibt dir gleich deinen ersten Knopf. Tipp drauf.",
  k3_tut_4_agentur: "Deine erste Waffe: Kampagne. Ein Tipp, und dein Hype springt hoch. Kanzlei, Zeitung und Bank geben dir weitere Knöpfe. Und behalt die anderen im Auge, die kaufen auch.",
+ k3_pop_blamiert: "BLAMIERT",
+ k3_blamage_titel: "Das ging daneben",
+ k3_blamage: n=>`<p>${n} hat das Haus gehalten. Die Zeitungen lachen, <b>dein Hype sinkt</b>.</p><p>Er hat die Tür zugemacht: <b>zwei Minuten</b>, bevor du es noch mal versuchen kannst. Und dabei bleibt es nicht, er wird bei einem deiner Häuser zurückschlagen.</p><p>Schau beim nächsten Mal vorher ins Fenster: Dort steht, wie weit er geht.</p>`,
+ k3_gesperrt: (n,s)=>`${n} hat zugemacht. Neuer Versuch in ${s} s.`,
 };

@@ -95,6 +95,7 @@ function k3GebSheet(id){ reopen=()=>k3GebSheet(id); const b=k3Geb(id), G=S.k3.g[
     if(b.typ==="bank") h+=`<div class="opt" data-kred="1"><div><b>${TX.k3_akt_kredit}</b><span>${TX.k3_frei_betrag(k3Fmt(k3KreditFrei()))}</span></div><em>›</em></div>`;
     h+=`<div class="opt" data-verk="1"><div><b>${TX.k3_verkaufen_80}</b><span>${TX.k3_verkaufen_d}</span></div><em>${k3Fmt(G.wert*0.8)}</em></div>`; }
   else if(b.typ==="turm") h+=`<p><b>${TX.k3_wert}</b> ${k3Fmt(G.wert)}</p><p style="color:var(--bad);font-weight:700">${TX.k3_turm_nicht}</p>`;
+  else if(o&&k3Gesperrt(b)) h+=`<p><b>${TX.k3_wert}</b> ${k3Fmt(G.wert)}</p><p style="color:var(--bad);font-weight:700">${TX.k3_gesperrt(K3_RIVALEN[o].n.split(" ").slice(-1)[0],Math.ceil(G.sperreT-S.t))}</p>`;
   else if(S.k3.auktion&&S.k3.auktion.id===id){ const A=S.k3.auktion, p=k3Schritt(A.preis), ok=A.fuehrt!=="du"&&S.money+k3KreditFrei()>=p;
     h+=`<p><b>${TX.k3_wert}</b> ${k3Fmt(G.wert)}</p><p style="color:var(--bad);font-weight:700">${TX.k3_auktion_laeuft}</p>
       <div class="opt ${ok?"":"off"}" ${ok?`data-biet="1"`:""}><div><b>${A.fuehrt==="du"?TX.k3_k_fuehrst_du(k3Fmt(A.preis)):TX.k3_k_bieten(k3Fmt(p))}</b><span></span></div><em>${k3Fmt(p)}</em></div>`; }

@@ -40,8 +40,13 @@ function k3AuktionStep(){ const A=S.k3.auktion; if(!A) return; const b=k3Geb(A.i
   if(S.t<A.ende) return;
   S.k3.auktion=null;
   if(A.fuehrt==="du"){ if(!k3Kaufen(A.id,A.preis)){ G.o=A.art==="frei"?A.rival:G.o; G.kaufT=S.t; } }
-  else if(A.art==="frei"){ G.o=A.rival; G.kaufT=S.t; k3Pop(b,TX.k3_pop_rivale_kauft(K3_RIVALEN[A.rival].n.split(" ").slice(-1)[0]),k3Farbe(A.rival)); }
-  else k3Pop(b,TX.k3_pop_gehalten,k3Farbe(A.rival)); }
+  else if(A.art==="frei"){ G.o=A.rival; G.kaufT=S.t; k3Pop(b,TX.k3_pop_rivale_kauft(K3_RIVALEN[A.rival].n.split(" ").slice(-1)[0]),k3Farbe(A.rival)); if(A.du) k3Hoch(-5); }
+  else k3Verloren(A,b,G); }
+// Ein verlorener Übernahmeversuch hat Folgen: Blamage, das Haus ist zu, und der Rivale schlägt zurück
+const K3_SPERRE=120;
+function k3Verloren(A,b,G){ G.sperreT=S.t+K3_SPERRE; k3Hoch(-12); k3Pop(b,TX.k3_pop_blamiert,"#FF6B5B");
+  const R=k3Rv(A.rival); R.rache=true; R.nextT=Math.min(R.nextT,S.t+8);
+  k3Erklaer("k3blamage",TX.k3_blamage_titel,TX.k3_blamage(K3_RIVALEN[A.rival].n)); }
 
 // Übernehmen: wehrt sich der Besitzer, wird es ein Bieterkampf, sonst gehört es dir sofort
 function k3Uebernehmen(id){ const b=k3Geb(id), G=S.k3.g[id]; if(!k3Kaufbar(b)||!k3Leistbar(b)||S.k3.auktion) return false;
@@ -76,9 +81,11 @@ function k3RivalenStep(){ const K=S.k3; if(!K.seen.ankunft) return;
     if(k3Skandal(k)){ R.nextT=S.t+5; continue; }
     const frei=K3_GEB.filter(b=>!K.g[b.id].o&&b.typ!=="turm"&&!(K.auktion&&K.auktion.id===b.id));
     // Je größer du bist, desto öfter wirst du zum Ziel
-    const angreifen=k3Meine().length>=2&&S.t>=(K.ruheT||0)&&Math.random()<Math.min(0.8,C.angriff*(0.35+anteil*1.6));
+    // Nach einem verlorenen Übernahmeversuch kommt die Rache sicher
+    const angreifen=k3Meine().length>=1&&(R.rache||(k3Meine().length>=2&&S.t>=(K.ruheT||0)&&Math.random()<Math.min(0.8,C.angriff*(0.35+anteil*1.6))));
     let getan=false;
-    if(angreifen&&!K.angriff){ getan=k3AngriffStart(k); if(getan) K.ruheT=S.t+K3_ANGRIFF_ZEIT+25; }   // nach einem Angriff kurz Ruhe
+    if(angreifen&&!K.angriff){ getan=k3AngriffStart(k); if(getan){ K.ruheT=S.t+K3_ANGRIFF_ZEIT+25; R.rache=false; } }
+    else if(R.rache&&K.angriff){ R.nextT=S.t+5; continue; }   // die Rache wartet, bis der laufende Angriff vorbei ist   // nach einem Angriff kurz Ruhe
     if(!getan&&frei.length&&!K.auktion){ const b=frei.sort((a,c)=>C.mag(c)-C.mag(a)||K.g[a.id].wert-K.g[c.id].wert)[0];
       getan=k3AuktionStart(b.id,k,"frei",K.g[b.id].wert,k); }
     R.nextT=S.t+(getan?C.takt*(0.8+Math.random()*0.4)/(0.8+anteil*1.5):6); } }
