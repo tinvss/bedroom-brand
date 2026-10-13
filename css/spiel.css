@@ -159,8 +159,20 @@ body.k3 #app{padding-bottom:180px}
 .k3tabs{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px}
 #k3pc{display:block; width:100%; border-radius:12px; touch-action:manipulation}
 #k3parinfo{display:flex; flex-wrap:wrap; gap:6px 12px; margin-top:8px; font-size:12.5px; color:var(--soft); line-height:1.4}
-#k3parinfo b{display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:5px; vertical-align:-1px}
+#k3parinfo .k3leg b{display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:5px; vertical-align:-1px}
 #k3parinfo .k3br{display:flex; flex-wrap:wrap; gap:6px; width:100%; margin-top:4px}
 #k3parinfo .k3br span{display:inline-flex; align-items:center; gap:4px; border:1px solid var(--line); border-radius:8px; padding:5px 8px; background:var(--card); color:var(--ink); font-weight:700}
 #k3parinfo .k3br em{font-style:normal; font-variant-numeric:tabular-nums}
 #k3parinfo .k3br .schwach{color:var(--soft)} #k3parinfo .k3br .stark em{color:var(--money)}
+.k3pwaehl{margin:0 0 6px; font-size:13px; color:var(--soft); width:100%}
+.k3akt{width:100%; background:var(--card); border:1px solid var(--line); border-radius:12px; padding:10px; margin-bottom:8px}
+.k3akt .kopf{display:flex; gap:10px; align-items:center; color:var(--ink)} .k3akt .kopf b{display:block; font-size:14px} .k3akt .kopf span{font-size:12px; color:var(--soft)}
+.k3akt .kopf em{font-style:normal; color:#7B5BC0; font-weight:800}
+.k3akt .ein{display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin-top:8px}
+.k3akt .ein button{appearance:none; font:inherit; font-weight:800; font-size:13px; padding:11px 4px; min-height:44px; border-radius:9px; border:0; background:var(--ink); color:var(--card); cursor:pointer}
+.k3akt .ein button:disabled{background:var(--line); color:var(--dim)}
+.k3pump{width:100%} #k3dump{appearance:none; font:inherit; width:100%; display:flex; justify-content:space-between; align-items:center; gap:10px; padding:14px 16px; min-height:56px; border:0; border-radius:12px; background:#1F7A55; color:#fff; cursor:pointer}
+#k3dump b{font-size:17px} #k3dump span{font-weight:800; font-size:15px; font-variant-numeric:tabular-nums}
+#k3dump.heiss{background:#B8432F; animation:ap .6s ease-in-out infinite}
+#k3pzeile{font-size:12.5px; color:var(--soft); margin-top:6px; font-variant-numeric:tabular-nums}
+.k3leg{display:flex; flex-wrap:wrap; gap:6px 12px; width:100%; margin-top:6px}

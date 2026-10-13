@@ -66,8 +66,8 @@ function k3Step(){ const K=S.k3; if(K.hype===undefined) K.hype=50;
       if(K.schuld>0){ const t=Math.min(K.schuld,Math.round(n*0.4)); K.schuld-=t; n-=t; }
       S.money+=n; S.earned+=n; stat('k3_ein',n); k3Pop(b,"+"+k3Fmt(n),"#7CE0A6"); } }
   k3RivalenStep();
-  // Das Parkett klingelt ab der Ankunft. Erst wer es einmal gesehen hat oder nach einer Minute.
-  if(K.seen.ankunft&&(S.seen.k3parkett||S.seen.k3parkett2||S.t-K.t0>60)) k3PStep(); }
+  // Das Parkett läuft ab der Ankunft. Telefone klingeln nur, solange du eine Aktie hältst.
+  if(K.seen.ankunft) k3PStep(); }
 
 // Das kleine Tutorial nach der Ankunft: ein Haus kaufen, Logo, Hype, Waffen
 function k3Tutorial(){ if(S.k3.seen.tut) return; S.k3.seen.tut=true; tutOn=true; tutI=TUT.length; tutQ=[];
