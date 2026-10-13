@@ -163,13 +163,13 @@ function k3Karten(){ const el=$("k3karten"), K=S.k3, A=K.auktion, X=K.angriff, t
 // Unter dem Parkett: ohne Aktie die drei Angebote mit Einsätzen, mit Aktie der große Verkaufen-Knopf
 function k3PumpPanel(){ const el=$("k3parinfo"), P=k3P(), A=P.akt; let key, html;
   if(A){ key="akt"; html=`<div class="k3pump"><button id="k3dump"><b>${TX.k3_p_verkaufen}</b><span id="k3dumpw"></span></button><div id="k3pzeile"></div></div><div class="k3leg">${TX.k3_p_legende}</div>`; }
-  else { html=`<p class="k3pwaehl">${TX.k3_p_waehl}</p>`+P.angebote.map((O,i)=>{ const m=k3PMax(O.br), st=[1/3,2/3,1].map(f=>Math.round(m*f/1000)*1000);
+  else { html=`<p class="k3pwaehl">${TX.k3_p_waehl}</p>`+P.angebote.map((O,i)=>{ const st=[0,1,2].map(k=>k3PEinsatz(O.br,k));
       return `<div class="k3akt"><div class="kopf">${k3BrSvg(O.br,20)}<div><b>${O.name}</b><span>${TX["k3_temp_"+O.temp]} · ${TX["k3_br_"+O.br]} ×${k3Dez(k3BranchenFaktor(O.br),1)}${k3Insider(O.br)?` · <em>${TX.k3_p_insider}</em>`:""}</span></div></div>
         <div class="ein">${st.map((e,k)=>`<button data-ein="${i}:${k}" ${S.money>=e?"":"disabled"}>${k3Fmt(e)}</button>`).join("")}</div></div>`; }).join("");
     key=html; }
   if(el.dataset.h!==key){ el.dataset.h=key; el.innerHTML=html;
     const d=$("k3dump"); if(d) d.onclick=()=>{ k3PVerkaufen(); hud(); };
     el.querySelectorAll("[data-ein]").forEach(b=>b.onclick=()=>{ const [i,k]=b.dataset.ein.split(":").map(Number); if(k3PEinsteigen(i,k)) hud(); }); }
-  if(A){ const w=TX.k3_p_dumpwert(k3Fmt(A.einsatz*A.kurs),k3Dez(A.kurs,2)); if($("k3dumpw").textContent!==w) $("k3dumpw").textContent=w;
+  if(A){ const d=Math.round(A.einsatz*(A.kurs-1)), w=TX.k3_p_dumpwert(k3Fmt(A.einsatz*A.kurs),(d>=0?"+":"−")+k3Fmt(Math.abs(d))); if($("k3dumpw").textContent!==w) $("k3dumpw").textContent=w;
     const z=TX.k3_p_zeile(A.name,k3Fmt(A.einsatz),Math.round(A.hitze*100)); if($("k3pzeile").textContent!==z) $("k3pzeile").textContent=z;
     $("k3dump").classList.toggle("heiss",k3PWarnung(A)); } }
