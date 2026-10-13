@@ -21,7 +21,7 @@ const k3Schritt=p=>Math.round(Math.max(p*1.1,p+1000)/1000)*1000;
 function k3RivalMax(k,b,art){ const C=K3_CHARAKTER[k], G=S.k3.g[b.id];
   if(k3Skandal(k)) return 0;
   const f=art==="frei"?C.frei:Math.max(1,C.wehr-0.1*k3Anz("kanzlei"));
-  return Math.round(G.wert*f*(C.mag(b)>=3?1.1:1)*(art==="frei"?1:k3Macht())); }
+  return Math.round(G.wert*f*(C.mag(b)>=3?1.1:1)*(art==="frei"?1:k3Macht())*(1+k3Kasse(k))); }
 
 // ---------- Bieterkampf ----------
 // Ein Haus, zwei Bieter. Jedes neue Gebot verlängert die Uhr. Wer am Ende vorne liegt, bekommt es.

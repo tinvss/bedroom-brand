@@ -12,13 +12,19 @@ function k3Migrieren(){ const K=S.k3; if((K.mig||0)>=1) return; K.mig=1;
   const G=K.g.kai; if(G&&G.o==="hammer"){ G.o=null; G.wert=Math.max(1000,Math.round(K.budget*0.7/1000)*1000); } }
 // Kapitel 3 an oder aus: alte Ansichten weg, Skyline her
 function k3Modus(an){ document.body.classList.toggle("k3",!!an); $("k3View").style.display=an?"":"none";
-  if(an){ k3Migrieren(); tutOn=false; tutQ=[]; $("tutRing").style.display="none"; $("tutBox").style.display="none"; k3Groesse(); k3Kamera(S.k3.cam); } }
+  if(an){ k3Migrieren(); tutOn=false; tutQ=[]; $("tutRing").style.display="none"; $("tutBox").style.display="none";
+    $("k3tSky").textContent=TX.k3_tab_skyline; k3Ansicht(S.k3.ansicht||"sky"); k3Kamera(S.k3.cam); } }
 
 function k3Hud(){ releaseDeferred();
   setzeWennNeu($("money"),k3Fmt(S.money)+`<u>${TX.k3_kapital}</u>`); $("money").style.color=S.money<0?"var(--bad)":"";
   setzeWennNeu($("pairs"),k3Prozent("du")+`%<u>${TX.k3_skyline}</u>`);
   setzeWennNeu($("ammo"),k3Meine().length+`<u>${TX.k3_gebaeude}</u>`);
   k3Tipp(); k3Status(); k3Aktionen(); k3Karten();
+  const n=k3PKlingelt(); setzeWennNeu($("k3tPar"),TX.k3_tab_parkett+(n&&S.k3.ansicht!=="par"?`<i>☎ ${n}</i>`:""));
+  setzeWennNeu($("k3parinfo"),TX.k3_p_legende);
+  // Wer schon spielt, bekommt das Parkett einmal gezeigt
+  if(S.k3.seen.tut&&!S.k3.seen.parHinweis&&!$("overlay").innerHTML&&!tutQ.length){ S.k3.seen.parHinweis=true; tutOn=true; tutI=TUT.length;
+    tutQ.push({id:"k3e2", el:()=>$("k3tPar"), t:TX.k3_tut_5_neu, done:()=>S.k3.ansicht==="par"}); }
   setzeWennNeu($("k3rivalen"),Object.keys(K3_RIVALEN).map(k=>{ const R=K3_RIVALEN[k];
     return `<button data-rv="${k}">${k3LogoSvg(k,26)}<b>${R.n.split(" ").slice(-1)[0]}</b><span>${k3Prozent(k)}%</span></button>`; }).join(""));
   document.querySelectorAll("#k3rivalen [data-rv]").forEach(b=>b.onclick=()=>k3RivalSheet(b.dataset.rv));
@@ -39,7 +45,7 @@ function k3Status(){ const el=$("k3status");
     el.onclick=k3HypeSheet; }
   const h=k3Hype(); $("k3hb").style.width=h+"%"; $("k3hb").style.background=h<25?"var(--bad)":h<60?"#F2B441":"#1F9E6E";
   const x="×"+k3Dez(k3HypeFaktor(),1); if($("k3hx").textContent!==x) $("k3hx").textContent=x;
-  const e=TX.k3_pro_min(k3Fmt(k3ProMin())); if($("k3ein").textContent!==e) $("k3ein").textContent=e;
+  const e=TX.k3_pro_min(k3Fmt(Math.max(k3ProMin(),perMin('k3_ein')))); if($("k3ein").textContent!==e) $("k3ein").textContent=e;
   const sc=S.k3.schuld>0?TX.k3_schuld(k3Fmt(S.k3.schuld)):""; if($("k3sch").textContent!==sc) $("k3sch").textContent=sc; }
 // Knöpfe für die Waffen. Neu gebaut nur, wenn eine dazukommt oder bereit wird, sonst nur die Sekunden.
 function k3Aktionen(){ const el=$("k3aktionen"), a=[];
